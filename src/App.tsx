@@ -377,7 +377,7 @@ export default function App() {
   };
 
   return (
-    <div className={`flex h-screen max-w-4xl mx-auto shadow-2xl overflow-hidden relative font-sans theme-${theme} bg-romantic-pink text-text-main transition-all duration-500`}>
+    <div className={`flex h-[100dvh] max-w-4xl mx-auto shadow-2xl overflow-hidden relative font-sans theme-${theme} bg-romantic-pink text-text-main transition-all duration-500`}>
       <ThemeBackground theme={theme} />
       
       {/* Sidebar / Chat List */}
