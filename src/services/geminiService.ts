@@ -8,13 +8,15 @@ export class GeminiService {
       });
       
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error Response:', errorData);
+        throw new Error(`Network response was not ok: ${response.status} ${errorData.error || ''}`);
       }
       
       const data = await response.json();
       return data.text || "দুঃখিত, আমি বুঝতে পারিনি।";
     } catch (error) {
-      console.error("Chat Error:", error);
+      console.error("Chat Error Details:", error);
       return "দুঃখিত, সার্ভারের সাথে যোগাযোগ করতে সমস্যা হচ্ছে।";
     }
   }
