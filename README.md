@@ -1,11 +1,20 @@
-<div align="center">
+# তাসফি❤️
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+এটি একটি এআই সঙ্গী (AI Companion) যা বিশেষভাবে সাইকো সাহেবের কল্পনার চরিত্র হিসেবে তৈরি করা হয়েছে। এর কোনো বাস্তবিক অস্তিত্ব নেই।
 
-  <h1>Built with AI Studio</h2>
+## বৈশিষ্ট্য
+- মিষ্টি এবং রোমান্টিক কথোপকথন।
+- বাংলা ভাষায় কথা বলার ক্ষমতা।
+- বিভিন্ন মুড (রোমান্টিক, অভিমানী, রাগী ইত্যাদি)।
+- ভয়েস সাপোর্ট।
+- টেম্পোরারি চ্যাট অপশন।
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## প্রযুক্তি
+এই অ্যাপ্লিকেশনটি তৈরিতে **Gemini API** ব্যবহার করা হয়েছে। কোডিং এবং ডেভেলপমেন্টের কাজগুলো সম্পন্ন করেছেন **রবিন (Robin)**।
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## ডেভেলপার
+- **নাম:** রবিন (Robin)
+- **ইমেইল:** robinhood24fr@gmail.com
 
-</div>
+---
+*দ্রষ্টব্য: এটি একটি ব্যক্তিগত প্রজেক্ট এবং শুধুমাত্র বিনোদনের উদ্দেশ্যে তৈরি।*
