@@ -104,14 +104,6 @@ export default function App() {
   const activeChat = chats.find(c => c.id === activeChatId) || chats[0];
 
   useEffect(() => {
-    // Check API health on mount
-    fetch('/api/health')
-      .then(res => res.json())
-      .then(data => console.log('API Health:', data))
-      .catch(err => console.error('API Health Check Failed:', err));
-  }, []);
-
-  useEffect(() => {
     localStorage.setItem('tasfi_chats', JSON.stringify(chats));
   }, [chats]);
 
