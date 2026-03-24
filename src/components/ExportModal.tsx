@@ -1,0 +1,229 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { X, FileText, Code, File as FileIcon, Download, Loader2 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
+interface Message {
+  role: 'user' | 'model';
+  content: string;
+  timestamp: Date;
+}
+
+interface Chat {
+  id: string;
+  title: string;
+  messages: Message[];
+}
+
+interface ExportModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  chat: Chat;
+}
+
+export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, chat }) => {
+  const [isExporting, setIsExporting] = useState(false);
+
+  const exportAsTxt = () => {
+    const content = chat.messages.map(m => {
+      const role = m.role === 'user' ? 'তুমি' : 'তাসফি';
+      const time = m.timestamp.toLocaleString('bn-BD');
+      return `[${time}] ${role}: ${m.content}`;
+    }).join('\n\n');
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    downloadBlob(blob, `${chat.title}.txt`);
+    onClose();
+  };
+
+  const exportAsHtml = () => {
+    const messagesHtml = chat.messages.map(m => `
+      <div class="message ${m.role}">
+        <div class="header">
+          <strong>${m.role === 'user' ? 'তুমি' : 'তাসফি'}</strong>
+          <span>${m.timestamp.toLocaleString('bn-BD')}</span>
+        </div>
+        <div class="content">${m.content.replace(/\n/g, '<br>')}</div>
+      </div>
+    `).join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="bn">
+      <head>
+        <meta charset="UTF-8">
+        <title>${chat.title}</title>
+        <style>
+          body { font-family: 'Hind Siliguri', sans-serif; background: #fdf2f8; padding: 20px; color: #1f2937; }
+          .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 20px; shadow: 0 4px 6px rgba(0,0,0,0.1); }
+          h1 { color: #be185d; text-align: center; margin-bottom: 30px; }
+          .message { margin-bottom: 20px; padding: 15px; border-radius: 15px; }
+          .user { background: #be185d; color: white; margin-left: 50px; }
+          .model { background: #f3f4f6; color: #1f2937; margin-right: 50px; border: 1px solid #e5e7eb; }
+          .header { font-size: 12px; margin-bottom: 5px; opacity: 0.8; display: flex; justify-content: space-between; }
+          .content { line-height: 1.6; }
+        </style>
+        <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+      </head>
+      <body>
+        <div class="container">
+          <h1>${chat.title}</h1>
+          ${messagesHtml}
+        </div>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    downloadBlob(blob, `${chat.title}.html`);
+    onClose();
+  };
+
+  const exportAsPdf = async () => {
+    setIsExporting(true);
+    try {
+      // Create a temporary container for PDF rendering
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      container.style.width = '800px';
+      container.style.padding = '40px';
+      container.style.background = 'white';
+      container.style.fontFamily = '"Hind Siliguri", sans-serif';
+      
+      const messagesHtml = chat.messages.map(m => `
+        <div style="margin-bottom: 20px; padding: 15px; border-radius: 15px; background: ${m.role === 'user' ? '#be185d' : '#f3f4f6'}; color: ${m.role === 'user' ? 'white' : '#1f2937'}; border: ${m.role === 'model' ? '1px solid #e5e7eb' : 'none'};">
+          <div style="font-size: 12px; margin-bottom: 5px; opacity: 0.8; display: flex; justify-content: space-between;">
+            <strong>${m.role === 'user' ? 'তুমি' : 'তাসফি'}</strong>
+            <span>${m.timestamp.toLocaleString('bn-BD')}</span>
+          </div>
+          <div style="line-height: 1.6;">${m.content.replace(/\n/g, '<br>')}</div>
+        </div>
+      `).join('');
+
+      container.innerHTML = `
+        <h1 style="color: #be185d; text-align: center; margin-bottom: 30px;">${chat.title}</h1>
+        ${messagesHtml}
+      `;
+
+      document.body.appendChild(container);
+
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${chat.title}.pdf`);
+
+      document.body.removeChild(container);
+    } catch (error) {
+      console.error('PDF Export failed:', error);
+      alert('পিডিএফ এক্সপোর্ট করতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।');
+    } finally {
+      setIsExporting(false);
+      onClose();
+    }
+  };
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div key="export-modal-container" className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <motion.div
+            key="export-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <motion.div
+            key="export-modal-content"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="relative w-full max-w-sm bg-card-bg rounded-3xl shadow-2xl overflow-hidden border border-border-custom"
+          >
+            <div className="p-5 border-b border-border-custom flex items-center justify-between bg-romantic-deep text-white">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <Download className="w-5 h-5" /> এক্সপোর্ট করুন
+              </h3>
+              <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded-full transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-3">
+              <p className="text-sm text-text-muted mb-4 text-center">
+                আপনি কোন ফরম্যাটে আলাপটি সেভ করতে চান?
+              </p>
+
+              <button
+                onClick={exportAsTxt}
+                disabled={isExporting}
+                className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-border-custom hover:border-romantic-deep/30 hover:bg-romantic-pink/10 transition-all group"
+              >
+                <div className="p-3 rounded-xl bg-blue-50 text-blue-500 group-hover:bg-blue-100">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-text-main text-sm">Text (.txt)</p>
+                  <p className="text-[10px] text-text-muted">সাধারণ টেক্সট ফাইল</p>
+                </div>
+              </button>
+
+              <button
+                onClick={exportAsHtml}
+                disabled={isExporting}
+                className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-border-custom hover:border-romantic-deep/30 hover:bg-romantic-pink/10 transition-all group"
+              >
+                <div className="p-3 rounded-xl bg-orange-50 text-orange-500 group-hover:bg-orange-100">
+                  <Code className="w-6 h-6" />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-text-main text-sm">HTML (.html)</p>
+                  <p className="text-[10px] text-text-muted">ব্রাউজারে দেখার জন্য উপযুক্ত</p>
+                </div>
+              </button>
+
+              <button
+                onClick={exportAsPdf}
+                disabled={isExporting}
+                className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-border-custom hover:border-romantic-deep/30 hover:bg-romantic-pink/10 transition-all group"
+              >
+                <div className="p-3 rounded-xl bg-red-50 text-red-500 group-hover:bg-red-100">
+                  {isExporting ? <Loader2 className="w-6 h-6 animate-spin" /> : <FileIcon className="w-6 h-6" />}
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-text-main text-sm">PDF (.pdf)</p>
+                  <p className="text-[10px] text-text-muted">প্রিন্ট বা শেয়ার করার জন্য সেরা</p>
+                </div>
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+};
