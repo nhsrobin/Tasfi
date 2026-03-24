@@ -670,7 +670,7 @@ export default function App() {
                 timestamp={msg.timestamp} 
                 reactions={msg.reactions}
                 replyTo={msg.replyTo}
-                mood={mood}
+                subMode={mood}
                 onReact={handleReact}
                 onReply={handleReply}
                 onDelete={handleDeleteMessage}
@@ -949,6 +949,8 @@ export default function App() {
               setChatToExport(null);
             }}
             chat={chatToExport}
+            nickname={nickname}
+            profilePic={profilePic}
           />
         )}
       </div>

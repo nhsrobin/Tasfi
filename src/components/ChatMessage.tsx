@@ -23,7 +23,7 @@ interface ChatMessageProps {
     content: string;
     role: 'user' | 'model';
   };
-  mood?: string;
+  subMode?: string;
   onReact?: (id: string, emoji: string) => void;
   onReply?: (id: string) => void;
   onDelete?: (id: string) => void;
@@ -40,7 +40,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   reactions = [], 
   expiresAt,
   replyTo,
-  mood = 'normal',
+  subMode = 'normal',
   onReact,
   onReply,
   onDelete,
@@ -89,7 +89,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
     setIsBuffering(true);
     try {
-      const audioUrl = await geminiService.generateVoice(content, role, mood);
+      const audioUrl = await geminiService.generateVoice(content, role, subMode);
       if (audioUrl) {
         const audio = new Audio(audioUrl);
         audioRef.current = audio;

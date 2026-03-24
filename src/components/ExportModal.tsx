@@ -20,17 +20,22 @@ interface ExportModalProps {
   isOpen: boolean;
   onClose: () => void;
   chat: Chat;
+  nickname: string;
+  profilePic: string;
 }
 
-export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, chat }) => {
+export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, chat, nickname, profilePic }) => {
   const [isExporting, setIsExporting] = useState(false);
 
   const exportAsTxt = () => {
-    const content = chat.messages.map(m => {
-      const role = m.role === 'user' ? 'তুমি' : 'তাসফি';
+    const header = `${nickname} - তোমার প্রিয় সঙ্গিনী\n${'='.repeat(30)}\n\n`;
+    const footer = `\n\n${'='.repeat(30)}\n${nickname} AI দ্বারা তৈরি\n${new Date().toLocaleString('bn-BD', { dateStyle: 'full', timeStyle: 'short' })}`;
+    
+    const content = header + chat.messages.map(m => {
+      const role = m.role === 'user' ? 'তুমি' : nickname;
       const time = m.timestamp.toLocaleString('bn-BD');
       return `[${time}] ${role}: ${m.content}`;
-    }).join('\n\n');
+    }).join('\n\n') + footer;
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     downloadBlob(blob, `${chat.title}.txt`);
@@ -41,7 +46,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, chat 
     const messagesHtml = chat.messages.map(m => `
       <div class="message ${m.role}">
         <div class="header">
-          <strong>${m.role === 'user' ? 'তুমি' : 'তাসফি'}</strong>
+          <strong>${m.role === 'user' ? 'তুমি' : nickname}</strong>
           <span>${m.timestamp.toLocaleString('bn-BD')}</span>
         </div>
         <div class="content">${m.content.replace(/\n/g, '<br>')}</div>
@@ -56,20 +61,46 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, chat 
         <title>${chat.title}</title>
         <style>
           body { font-family: 'Hind Siliguri', sans-serif; background: #fdf2f8; padding: 20px; color: #1f2937; }
-          .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 20px; shadow: 0 4px 6px rgba(0,0,0,0.1); }
-          h1 { color: #be185d; text-align: center; margin-bottom: 30px; }
-          .message { margin-bottom: 20px; padding: 15px; border-radius: 15px; }
-          .user { background: #be185d; color: white; margin-left: 50px; }
-          .model { background: #f3f4f6; color: #1f2937; margin-right: 50px; border: 1px solid #e5e7eb; }
-          .header { font-size: 12px; margin-bottom: 5px; opacity: 0.8; display: flex; justify-content: space-between; }
-          .content { line-height: 1.6; }
+          .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+          
+          .export-header { display: flex; items-center: center; gap: 15px; margin-bottom: 40px; border-bottom: 2px solid #fce7f3; padding-bottom: 20px; }
+          .profile-pic { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid #be185d; }
+          .header-info { display: flex; flex-direction: column; justify-content: center; }
+          .name-row { display: flex; align-items: center; gap: 8px; }
+          .nickname { font-size: 24px; font-weight: 800; color: #1f2937; }
+          .sparkle { color: #be185d; font-size: 20px; }
+          .subtitle { font-size: 14px; color: #be185d; font-weight: 500; margin-top: -4px; }
+
+          .message { margin-bottom: 20px; padding: 18px; border-radius: 20px; position: relative; }
+          .user { background: #be185d; color: white; margin-left: 60px; border-bottom-right-radius: 5px; }
+          .model { background: #f9fafb; color: #1f2937; margin-right: 60px; border: 1px solid #f3f4f6; border-bottom-left-radius: 5px; }
+          .header { font-size: 11px; margin-bottom: 8px; opacity: 0.7; display: flex; justify-content: space-between; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+          .content { line-height: 1.7; font-size: 15px; }
+
+          .export-footer { margin-top: 50px; text-align: center; border-top: 2px solid #fce7f3; padding-top: 20px; color: #9ca3af; font-size: 12px; }
+          .footer-brand { font-weight: 700; color: #be185d; margin-bottom: 4px; }
         </style>
-        <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
       </head>
       <body>
         <div class="container">
-          <h1>${chat.title}</h1>
+          <div class="export-header">
+            <img src="${profilePic}" class="profile-pic">
+            <div class="header-info">
+              <div class="name-row">
+                <span class="nickname">${nickname}</span>
+                <span class="sparkle">✨</span>
+              </div>
+              <div class="subtitle">তোমার প্রিয় সঙ্গিনী</div>
+            </div>
+          </div>
+          
           ${messagesHtml}
+
+          <div class="export-footer">
+            <div class="footer-brand">${nickname} AI দ্বারা তৈরি</div>
+            <div>${new Date().toLocaleString('bn-BD', { dateStyle: 'full', timeStyle: 'short' })}</div>
+          </div>
         </div>
       </body>
       </html>
@@ -83,49 +114,97 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, chat 
   const exportAsPdf = async () => {
     setIsExporting(true);
     try {
-      // Create a temporary container for PDF rendering
-      const container = document.createElement('div');
-      container.style.position = 'fixed';
-      container.style.left = '-9999px';
-      container.style.top = '0';
-      container.style.width = '800px';
-      container.style.padding = '40px';
-      container.style.background = 'white';
-      container.style.fontFamily = '"Hind Siliguri", sans-serif';
-      
-      const messagesHtml = chat.messages.map(m => `
-        <div style="margin-bottom: 20px; padding: 15px; border-radius: 15px; background: ${m.role === 'user' ? '#be185d' : '#f3f4f6'}; color: ${m.role === 'user' ? 'white' : '#1f2937'}; border: ${m.role === 'model' ? '1px solid #e5e7eb' : 'none'};">
-          <div style="font-size: 12px; margin-bottom: 5px; opacity: 0.8; display: flex; justify-content: space-between;">
-            <strong>${m.role === 'user' ? 'তুমি' : 'তাসফি'}</strong>
-            <span>${m.timestamp.toLocaleString('bn-BD')}</span>
-          </div>
-          <div style="line-height: 1.6;">${m.content.replace(/\n/g, '<br>')}</div>
-        </div>
-      `).join('');
-
-      container.innerHTML = `
-        <h1 style="color: #be185d; text-align: center; margin-bottom: 30px;">${chat.title}</h1>
-        ${messagesHtml}
-      `;
-
-      document.body.appendChild(container);
-
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      });
-
-      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgProps = pdf.getImageProperties(imgData);
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      const contentWidth = pdfWidth - (margin * 2);
+      let currentY = margin;
 
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      // Temporary container for rendering elements
+      const renderContainer = document.createElement('div');
+      renderContainer.style.position = 'fixed';
+      renderContainer.style.left = '-9999px';
+      renderContainer.style.top = '0';
+      renderContainer.style.width = '800px'; // Fixed width for consistent rendering
+      renderContainer.style.background = 'white';
+      renderContainer.style.fontFamily = '"Hind Siliguri", "Inter", sans-serif';
+      document.body.appendChild(renderContainer);
+
+      const addElementToPdf = async (html: string) => {
+        renderContainer.innerHTML = html;
+        
+        // Wait for images in this element
+        const images = renderContainer.getElementsByTagName('img');
+        await Promise.all(Array.from(images).map(img => {
+          if (img.complete) return Promise.resolve();
+          return new Promise(resolve => {
+            img.onload = resolve;
+            img.onerror = resolve;
+          });
+        }));
+        
+        await document.fonts.ready;
+
+        const canvas = await html2canvas(renderContainer, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          windowWidth: 800,
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        const imgWidth = contentWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        // Check if we need a new page
+        if (currentY + imgHeight > pdfHeight - margin) {
+          pdf.addPage();
+          currentY = margin;
+        }
+
+        pdf.addImage(imgData, 'PNG', margin, currentY, imgWidth, imgHeight);
+        currentY += imgHeight + 5; // Add a small gap between elements
+      };
+
+      // 1. Add Header
+      await addElementToPdf(`
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; border-bottom: 2px solid #fce7f3; padding-bottom: 20px; width: 100%;">
+          <img src="${profilePic}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid #be185d;" crossorigin="anonymous">
+          <div style="display: flex; flex-direction: column; justify-content: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 24px; font-weight: 800; color: #1f2937;">${nickname}</span>
+              <span style="color: #be185d; font-size: 20px;">✨</span>
+            </div>
+            <div style="font-size: 14px; color: #be185d; font-weight: 500; margin-top: -4px;">তোমার প্রিয় সঙ্গিনী</div>
+          </div>
+        </div>
+      `);
+
+      // 2. Add Messages one by one
+      for (const m of chat.messages) {
+        await addElementToPdf(`
+          <div style="margin-bottom: 10px; padding: 18px; border-radius: 20px; background: ${m.role === 'user' ? '#be185d' : '#f9fafb'}; color: ${m.role === 'user' ? 'white' : '#1f2937'}; border: ${m.role === 'model' ? '1px solid #f3f4f6' : 'none'}; border-bottom-${m.role === 'user' ? 'right' : 'left'}-radius: 5px; margin-${m.role === 'user' ? 'left' : 'right'}: 60px; width: calc(100% - 60px);">
+            <div style="font-size: 11px; margin-bottom: 8px; opacity: 0.7; display: flex; justify-content: space-between; font-weight: 600; text-transform: uppercase;">
+              <strong>${m.role === 'user' ? 'তুমি' : nickname}</strong>
+              <span>${m.timestamp.toLocaleString('bn-BD')}</span>
+            </div>
+            <div style="line-height: 1.7; font-size: 15px;">${m.content.replace(/\n/g, '<br>')}</div>
+          </div>
+        `);
+      }
+
+      // 3. Add Footer
+      await addElementToPdf(`
+        <div style="margin-top: 30px; text-align: center; border-top: 2px solid #fce7f3; padding-top: 20px; color: #9ca3af; font-size: 12px; width: 100%;">
+          <div style="font-weight: 700; color: #be185d; margin-bottom: 4px;">${nickname} AI দ্বারা তৈরি</div>
+          <div>${new Date().toLocaleString('bn-BD', { dateStyle: 'full', timeStyle: 'short' })}</div>
+        </div>
+      `);
+
       pdf.save(`${chat.title}.pdf`);
-
-      document.body.removeChild(container);
+      document.body.removeChild(renderContainer);
     } catch (error) {
       console.error('PDF Export failed:', error);
       alert('পিডিএফ এক্সপোর্ট করতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।');
