@@ -35,7 +35,7 @@ const getInitialMessage = (): Message => ({
   timestamp: new Date(),
 });
 
-const PROFILE_PIC = "https://picsum.photos/seed/tasfi_romantic/200/200";
+const PROFILE_PIC = "/icon.png";
 
 export default function App() {
   const [chats, setChats] = useState<Chat[]>(() => {
@@ -71,7 +71,7 @@ export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('tasfi_theme') || 'love');
   const [displayMode, setDisplayMode] = useState(() => localStorage.getItem('tasfi_displayMode') || 'light');
   const [nickname, setNickname] = useState(() => localStorage.getItem('tasfi_nickname') || 'তাসফি');
-  const [profilePic, setProfilePic] = useState(() => localStorage.getItem('tasfi_profilePic') || "https://picsum.photos/seed/tasfi_romantic/200/200");
+  const [profilePic, setProfilePic] = useState(() => localStorage.getItem('tasfi_profilePic') || "/icon.png");
   
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
