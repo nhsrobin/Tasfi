@@ -17,10 +17,11 @@ export const ThemeBackground: React.FC<ThemeBackgroundProps> = ({ theme }) => {
       duration: `${10 + Math.random() * 10}s`,
       size: 10 + Math.random() * 20,
     }));
-    setElements(newElements);
+    setElements(theme === 'splash' ? [] : newElements);
   }, [theme]);
 
   const renderElement = (el: any) => {
+    if (theme === 'splash') return null;
     const style = {
       left: el.left,
       animationDelay: el.delay,
@@ -65,6 +66,16 @@ export const ThemeBackground: React.FC<ThemeBackgroundProps> = ({ theme }) => {
 
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      {theme === 'splash' && (
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="/splash.jpg" 
+            alt="background" 
+            className="w-full h-full object-cover opacity-60"
+          />
+          <div className="absolute inset-0 bg-romantic-pink/10 backdrop-blur-[2px]"></div>
+        </div>
+      )}
       {elements.map(renderElement)}
     </div>
   );
