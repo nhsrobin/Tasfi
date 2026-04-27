@@ -42,13 +42,6 @@
   --border-color: #f1f5f9;
 }
 
-.theme-splash {
-  --primary-color: #be185d;
-  --primary-hover: #9d174d;
-  --bg-color: transparent;
-  --border-color: rgba(255, 255, 255, 0.2);
-}
-
 /* Display Modes */
 .mode-dark, .dark {
   --bg-color: #0f172a;

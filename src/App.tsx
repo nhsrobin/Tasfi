@@ -399,7 +399,7 @@ export default function App() {
         {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
       </AnimatePresence>
 
-      <div className={`flex h-screen h-[100dvh] max-w-4xl mx-auto shadow-2xl overflow-hidden relative font-sans theme-${theme} bg-romantic-pink text-text-main transition-all duration-500`}>
+      <div className={`flex h-screen max-w-4xl mx-auto shadow-2xl overflow-hidden relative font-sans theme-${theme} bg-romantic-pink text-text-main transition-all duration-500`}>
       <ThemeBackground theme={theme} />
       
       {/* Sidebar / Chat List */}
@@ -744,7 +744,7 @@ export default function App() {
         </main>
 
         {/* Input Area */}
-        <footer className="p-4 pb-3 bg-card-bg/80 backdrop-blur-md border-t border-border-custom z-30 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
+        <footer className="p-4 pb-3 bg-card-bg border-t border-border-custom z-30 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
           <AnimatePresence>
             {replyingTo && (
               <motion.div
@@ -883,17 +883,16 @@ export default function App() {
                     <div className="flex items-center justify-between mb-4 px-2">
                       <h4 className="text-sm font-bold text-text-muted uppercase tracking-wider">থিম নির্বাচন</h4>
                       <span className="text-[10px] bg-romantic-pink text-romantic-deep px-2 py-1 rounded-full font-bold">
-                        {theme === 'default' ? 'রোমান্টিক' : theme === 'love' ? 'লাভ' : theme === 'sad' ? 'স্যাড' : theme === 'nature' ? 'প্রকৃতি' : theme === 'splash' ? 'স্প্ল্যাশ' : 'ক্লাসিক'}
+                        {theme === 'default' ? 'রোমান্টিক' : theme === 'love' ? 'লাভ' : theme === 'sad' ? 'স্যাড' : theme === 'nature' ? 'প্রকৃতি' : 'ক্লাসিক'}
                       </span>
                     </div>
-                    <div className="grid grid-cols-6 gap-2 px-2">
+                    <div className="grid grid-cols-5 gap-2 px-2">
                       {[
                         { id: 'default', color: 'bg-pink-500', label: 'রোমান্টিক' },
                         { id: 'love', color: 'bg-red-500', label: 'লাভ' },
                         { id: 'sad', color: 'bg-slate-500', label: 'স্যাড' },
                         { id: 'nature', color: 'bg-emerald-500', label: 'প্রকৃতি' },
                         { id: 'classic', color: 'bg-indigo-500', label: 'ক্লাসিক' },
-                        { id: 'splash', color: 'bg-black', label: 'স্প্ল্যাশ', image: '/splash.jpg' },
                       ].map(t => (
                         <button
                           key={t.id}
@@ -903,11 +902,7 @@ export default function App() {
                             theme === t.id ? "ring-2 ring-romantic-deep ring-offset-2" : "hover:scale-105"
                           }`}
                         >
-                          {t.image ? (
-                            <img src={t.image} className="w-10 h-10 rounded-full object-cover shadow-md" />
-                          ) : (
-                            <div className={`w-10 h-10 rounded-full ${t.color} shadow-md`} />
-                          )}
+                          <div className={`w-10 h-10 rounded-full ${t.color} shadow-md`} />
                           {theme === t.id && (
                             <div className="absolute -top-1 -right-1 bg-romantic-deep text-white rounded-full p-0.5 shadow-sm">
                               <Check className="w-3 h-3" />
@@ -961,7 +956,7 @@ export default function App() {
                         setDisplayMode('light');
                         setMood('normal');
                         setNickname('তাসফি');
-                        setProfilePic("/profile.png");
+                        setProfilePic("https://picsum.photos/seed/tasfi_romantic/200/200");
                       }}
                       className="w-full py-3 px-4 bg-input-bg text-text-muted hover:text-romantic-deep hover:bg-romantic-pink/20 rounded-2xl transition-all text-xs font-bold border border-border-custom flex items-center justify-center gap-2"
                     >
