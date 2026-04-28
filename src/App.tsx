@@ -47,7 +47,7 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
       className="fixed inset-0 z-[99999] bg-black flex items-center justify-center overflow-hidden"
     >
       <motion.img 
-        src="/splash.jpg"
+        src="/public/splash.jpg"
         initial={{ scale: 1.1, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 1.5, ease: "easeOut" }}
