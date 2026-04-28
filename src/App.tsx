@@ -35,7 +35,7 @@ const getInitialMessage = (): Message => ({
   timestamp: new Date(),
 });
 
-const PROFILE_PIC = "/public/profile.png";
+const PROFILE_PIC = "/profile.png";
 
 const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
   return (
@@ -44,16 +44,16 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 1 }}
-      className="fixed inset-0 z-[99999] bg-black flex items-center justify-center overflow-hidden"
+      className="fixed inset-0 z-[99999] bg-black flex items-center justify-center overflow-hidden w-screen h-screen"
     >
       <motion.img 
         src="/splash.jpg"
         initial={{ scale: 1.1, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 1.5, ease: "easeOut" }}
-        className="w-full h-full object-cover"
+        className="w-full h-full object-cover select-none pointer-events-none"
         onAnimationComplete={() => {
-          setTimeout(onFinish, 2000);
+          setTimeout(onFinish, 2500);
         }}
       />
     </motion.div>
@@ -952,11 +952,11 @@ export default function App() {
                   <div className="pt-6 border-t border-border-custom">
                     <button
                       onClick={() => {
-                        setTheme('default');
+                        setTheme('love');
                         setDisplayMode('light');
                         setMood('normal');
                         setNickname('তাসফি');
-                        setProfilePic("https://picsum.photos/seed/tasfi_romantic/200/200");
+                        setProfilePic("/profile.png");
                       }}
                       className="w-full py-3 px-4 bg-input-bg text-text-muted hover:text-romantic-deep hover:bg-romantic-pink/20 rounded-2xl transition-all text-xs font-bold border border-border-custom flex items-center justify-center gap-2"
                     >

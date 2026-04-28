@@ -185,12 +185,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, chat,
       // 2. Add Messages one by one
       for (const m of chat.messages) {
         await addElementToPdf(`
-          <div style="margin-bottom: 10px; padding: 18px; border-radius: 20px; background: ${m.role === 'user' ? '#be185d' : '#f9fafb'}; color: ${m.role === 'user' ? 'white' : '#1f2937'}; border: ${m.role === 'model' ? '1px solid #f3f4f6' : 'none'}; border-bottom-${m.role === 'user' ? 'right' : 'left'}-radius: 5px; margin-${m.role === 'user' ? 'left' : 'right'}: 60px; width: calc(100% - 60px);">
-            <div style="font-size: 11px; margin-bottom: 8px; opacity: 0.7; display: flex; justify-content: space-between; font-weight: 600; text-transform: uppercase;">
+          <div style="margin-bottom: 20px; padding: 25px; border-radius: 25px; background: ${m.role === 'user' ? '#be185d' : '#f9fafb'}; color: ${m.role === 'user' ? 'white' : '#1f2937'}; border: ${m.role === 'model' ? '1px solid #f3f4f6' : 'none'}; border-bottom-${m.role === 'user' ? 'right' : 'left'}-radius: 8px; margin-${m.role === 'user' ? 'left' : 'right'}: 80px; width: calc(100% - 80px); box-sizing: border-box; overflow-wrap: break-word; word-wrap: break-word; word-break: break-word;">
+            <div style="font-size: 12px; margin-bottom: 12px; opacity: 0.8; display: flex; justify-content: space-between; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid ${m.role === 'user' ? 'rgba(255,255,255,0.2)' : '#f1f5f9'}; padding-bottom: 5px;">
               <strong>${m.role === 'user' ? 'তুমি' : nickname}</strong>
               <span>${m.timestamp.toLocaleString('bn-BD')}</span>
             </div>
-            <div style="line-height: 1.7; font-size: 15px;">${m.content.replace(/\n/g, '<br>')}</div>
+            <div style="line-height: 1.8; font-size: 16px; white-space: pre-wrap;">${m.content}</div>
           </div>
         `);
       }

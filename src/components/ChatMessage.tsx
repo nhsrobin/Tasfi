@@ -51,6 +51,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(content);
   
+  const [isCopied, setIsCopied] = useState(false);
+  
   // Swipe to Reply State
   const dragX = useMotionValue(0);
   const replyIconOpacity = useTransform(dragX, [0, 60], [0, 1]);
@@ -141,6 +143,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
     setIsMenuOpen(false);
   };
 
@@ -319,25 +323,25 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             )}
           >
             {isEditing ? (
-              <div className="flex flex-col gap-2 min-w-[200px]">
+              <div className="flex flex-col gap-2 min-w-[200px] w-full">
                 <textarea
                   autoFocus
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
-                  className="w-full bg-transparent border-none outline-none text-sm resize-none"
+                  className="w-full bg-transparent border-none outline-none text-sm resize-none focus:ring-0 p-0"
                   rows={3}
                 />
-                <div className="flex justify-end gap-2">
-                  <button onClick={() => setIsEditing(false)} className="p-1 hover:bg-white/20 rounded">
-                    <X className="w-4 h-4" />
+                <div className="flex justify-end gap-2 border-t border-white/20 pt-2">
+                  <button onClick={() => setIsEditing(false)} className="p-1 px-2 hover:bg-white/10 rounded flex items-center gap-1 text-[10px]">
+                    <X className="w-3 h-3" /> বাতিল
                   </button>
-                  <button onClick={handleSaveEdit} className="p-1 hover:bg-white/20 rounded">
-                    <Check className="w-4 h-4" />
+                  <button onClick={handleSaveEdit} className="p-1 px-2 bg-white/20 hover:bg-white/30 rounded flex items-center gap-1 text-[10px] font-bold">
+                    <Check className="w-3 h-3" /> সেভ
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="markdown-body text-sm md:text-base leading-relaxed">
+              <div className="markdown-body text-sm md:text-base leading-relaxed break-words overflow-wrap-anywhere">
                 <Markdown>{content}</Markdown>
               </div>
             )}
@@ -394,6 +398,19 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               </div>
             )}
           </div>
+          
+          <AnimatePresence>
+            {isCopied && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="absolute -top-8 bg-green-500 text-white text-[10px] px-2 py-1 rounded-full font-bold shadow-lg flex items-center gap-1"
+              >
+                <Check className="w-2.5 h-2.5" /> কপি হয়েছে
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </div>
 
