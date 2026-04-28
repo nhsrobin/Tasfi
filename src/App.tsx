@@ -35,7 +35,7 @@ const getInitialMessage = (): Message => ({
   timestamp: new Date(),
 });
 
-const PROFILE_PIC = "/public/profile.png";
+const PROFILE_PIC = "/profile.png";
 
 const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
   return (
