@@ -38,12 +38,18 @@ const getInitialMessage = (): Message => ({
 const PROFILE_PIC = "/profile.png";
 
 const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
+  useEffect(() => {
+    // Fallback timer in case onAnimationComplete doesn't fire nicely
+    const timer = setTimeout(onFinish, 4000);
+    return () => clearTimeout(timer);
+  }, [onFinish]);
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 1 }}
+      transition={{ duration: 0.8 }}
       className="fixed inset-0 z-[99999] bg-black flex items-center justify-center overflow-hidden w-screen h-screen"
     >
       <motion.img 
@@ -52,8 +58,11 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 1.5, ease: "easeOut" }}
         className="w-full h-full object-cover select-none pointer-events-none"
+        onLoad={() => {
+          // If image loads successfully, we can end splash after the animation
+        }}
         onAnimationComplete={() => {
-          setTimeout(onFinish, 2500);
+          setTimeout(onFinish, 1500);
         }}
       />
     </motion.div>
@@ -94,7 +103,16 @@ export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('tasfi_theme') || 'love');
   const [displayMode, setDisplayMode] = useState(() => localStorage.getItem('tasfi_displayMode') || 'light');
   const [nickname, setNickname] = useState(() => localStorage.getItem('tasfi_nickname') || 'তাসফি');
-  const [profilePic, setProfilePic] = useState(() => localStorage.getItem('tasfi_profilePic') || "/profile.png");
+  
+  const [profilePic, setProfilePic] = useState(() => {
+    const saved = localStorage.getItem('tasfi_profilePic');
+    // If it's a placeholder or doesn't exist, use the new /profile.png
+    if (!saved || saved.includes('picsum.photos') || saved === "/icon.png" || saved === "/public/profile.png") {
+      return PROFILE_PIC;
+    }
+    return saved;
+  });
+  
   const [showSplash, setShowSplash] = useState(true);
   
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);

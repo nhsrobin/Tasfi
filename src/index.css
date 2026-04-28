@@ -140,6 +140,12 @@ body {
   z-index: 0;
 }
 
+.markdown-body {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
 .markdown-body p {
   margin-bottom: 0.75rem;
   line-height: 1.6;
