@@ -35,7 +35,7 @@ const getInitialMessage = (): Message => ({
   timestamp: new Date(),
 });
 
-const PROFILE_PIC = "/profile.png";
+const PROFILE_PIC = "/public/profile.png";
 
 const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
   return (
@@ -47,7 +47,7 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
       className="fixed inset-0 z-[99999] bg-black flex items-center justify-center overflow-hidden"
     >
       <motion.img 
-        src="/public/splash.jpg"
+        src="/splash.jpg"
         initial={{ scale: 1.1, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 1.5, ease: "easeOut" }}
