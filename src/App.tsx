@@ -35,12 +35,12 @@ const getInitialMessage = (): Message => ({
   timestamp: new Date(),
 });
 
-const PROFILE_PIC = "/profile.png";
+const PROFILE_PIC = "/profile.png?v=1.1";
 
 const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
   useEffect(() => {
-    // Fallback timer in case onAnimationComplete doesn't fire nicely
-    const timer = setTimeout(onFinish, 4000);
+    // Fallback timer
+    const timer = setTimeout(onFinish, 4500);
     return () => clearTimeout(timer);
   }, [onFinish]);
 
@@ -53,16 +53,17 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
       className="fixed inset-0 z-[99999] bg-black flex items-center justify-center overflow-hidden w-screen h-screen"
     >
       <motion.img 
-        src="/splash.jpg"
+        src="/splash.jpg?v=1.1"
         initial={{ scale: 1.1, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 1.5, ease: "easeOut" }}
         className="w-full h-full object-cover select-none pointer-events-none"
-        onLoad={() => {
-          // If image loads successfully, we can end splash after the animation
-        }}
         onAnimationComplete={() => {
-          setTimeout(onFinish, 1500);
+          setTimeout(onFinish, 1800);
+        }}
+        onError={() => {
+          console.warn("Splash image failed to load, skipping...");
+          onFinish();
         }}
       />
     </motion.div>
@@ -106,8 +107,12 @@ export default function App() {
   
   const [profilePic, setProfilePic] = useState(() => {
     const saved = localStorage.getItem('tasfi_profilePic');
-    // If it's a placeholder or doesn't exist, use the new /profile.png
-    if (!saved || saved.includes('picsum.photos') || saved === "/icon.png" || saved === "/public/profile.png") {
+    // Force reset if it's an old placeholder or specifically a path that we want to override
+    if (!saved || 
+        saved.includes('picsum.photos') || 
+        saved === "/icon.png" || 
+        saved === "/public/profile.png" ||
+        saved.startsWith('http') && !saved.includes(window.location.host) && !saved.includes('drive.google.com')) {
       return PROFILE_PIC;
     }
     return saved;
@@ -616,6 +621,12 @@ export default function App() {
                 alt={nickname} 
                 referrerPolicy="no-referrer"
                 className="w-11 h-11 md:w-14 md:h-14 rounded-full object-cover border-2 border-romantic-deep/20 shadow-md group-hover:border-romantic-deep transition-all"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (target.src !== window.location.origin + PROFILE_PIC) {
+                    target.src = PROFILE_PIC;
+                  }
+                }}
               />
               <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-card-bg rounded-full shadow-sm"></div>
             </div>
