@@ -1,5 +1,0 @@
-{
-  "name": "Tasfi",
-  "description": "Your AI companion Tasfi. A person-like AI personality created for meaningful conversations and emotional connection.",
-  "requestFramePermissions": ["microphone"]
-}
