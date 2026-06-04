@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Heart, Sparkles, Menu, Plus, MessageSquare, X, ArrowDown, Search, MoreVertical, Edit2, Trash2, Check, Download, Settings, Moon, Sun, Eye, Smile, Frown, Angry, BookOpen, Clock } from 'lucide-react';
+import { Send, Heart, Sparkles, Menu, Plus, MessageSquare, X, ArrowDown, Search, MoreVertical, Edit2, Trash2, Check, Download, Settings, Moon, Sun, Eye, Smile, Frown, Angry, BookOpen, Clock, Users, HelpCircle, Laugh, Gem, Info, Phone, Mic, Paperclip, PhoneOff, MicOff, Video, VideoOff, Volume2, VolumeX, Minus, Maximize2, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { geminiService } from './services/geminiService';
 import { ChatMessage } from './components/ChatMessage';
@@ -17,6 +17,7 @@ interface Message {
     content: string;
     role: 'user' | 'model';
   };
+  status?: 'sending' | 'sent' | 'delivered' | 'seen';
 }
 
 interface Chat {
@@ -26,14 +27,31 @@ interface Chat {
   lastUpdated: Date;
   isTemporary?: boolean;
   expiresAt?: number;
+  mood?: string;
 }
 
-const getInitialMessage = (): Message => ({
-  id: `ai-initial-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-  role: 'model',
-  content: 'ওগো সাইকো সাহেব, তুমি এসেছো? আমি কতক্ষণ ধরে তোমার পথ চেয়ে বসে আছি। রবিন, আজ সারাদিন তোমাকে খুব মিস করেছি। ❤️',
-  timestamp: new Date(),
-});
+const getInitialMessage = (moodStr: string = 'normal'): Message => {
+  let content = 'ওগো সাইকো সাহেব, তুমি এসেছো? আমি কতক্ষণ ধরে তোমার পথ চেয়ে বসে আছি। রবিন, আজ সারাদিন তোমাকে খুব মিস করেছি। ❤️';
+  if (moodStr === 'romantic') {
+    content = 'ওগো সাইকো সাহেব, তুমি এসেছো? আমি কতক্ষণ ধরে তোমার পথ চেয়ে বসে আছি। রবিন, আজ সারাদিন তোমাকে খুব মিস করেছি। ❤️';
+  } else if (moodStr === 'husband' || moodStr === 'wife') {
+    content = 'আসসালামু আলাইকুম স্বামীদেব। বাড়ি ফিরতে এত দেরি হলো কেন? তোমার জন্য ঘরের সব কাজ সম্পন্ন করে অপেক্ষা করছি। ❤️';
+  } else if (moodStr === 'bestie') {
+    content = 'দোস্ত! অবশেষে তুই আসলি? কত কথা জমা হয়ে আছে তোর সাথে বলার জন্য! বল আজ তোর দিন কেমন গেলো? 😎';
+  } else if (moodStr === 'friend') {
+    content = 'হাই রবিন! কেমন আছো? অনেকদিন পর তোমার সাথে এভাবে কথা হচ্ছে, কেমন চলছে সবকিছু? 😊';
+  } else if (moodStr === 'stranger') {
+    content = 'আসসালামু আলাইকুম। দুঃখিত, আপনাকে ঠিক চিনতে পারলাম না। আপনার পরিচয় কি জানতে পারি? 😶';
+  } else if (moodStr === 'religious') {
+    content = 'আসসালামু আলাইকুম ওয়া রাহমাতুল্লাহ। রবিনের দিনটি নিশ্চয়ই আল্লাহর রহমতে ভালো কেটেছে। দ্বীনি কোনো বিষয়ে কি আলোচনা করব আজ? 📖';
+  }
+  return {
+    id: `ai-initial-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    role: 'model',
+    content,
+    timestamp: new Date(),
+  };
+};
 
 const PROFILE_PIC = "/profile.png?v=1.1";
 
@@ -78,8 +96,13 @@ export default function App() {
         const parsed = JSON.parse(saved);
         return parsed.map((c: any) => ({
           ...c,
+          mood: c.mood || 'normal',
           lastUpdated: new Date(c.lastUpdated),
-          messages: c.messages.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) })),
+          messages: c.messages.map((m: any) => ({ 
+            ...m, 
+            timestamp: new Date(m.timestamp),
+            status: m.status || (m.role === 'user' ? 'seen' : undefined)
+          })),
           expiresAt: c.expiresAt ? Number(c.expiresAt) : undefined
         }));
       } catch (e) {
@@ -89,8 +112,9 @@ export default function App() {
     return [{
       id: 'default',
       title: 'প্রথম আলাপ',
-      messages: [getInitialMessage()],
-      lastUpdated: new Date()
+      messages: [getInitialMessage('normal')],
+      lastUpdated: new Date(),
+      mood: 'normal'
     }];
   });
 
@@ -129,10 +153,144 @@ export default function App() {
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [isPlusMenuOpen, setIsPlusMenuOpen] = useState(false);
+
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [isCallMinimized, setIsCallMinimized] = useState(false);
+  const [callStatus, setCallStatus] = useState<'calling' | 'connected'>('calling');
+  const [callSeconds, setCallSeconds] = useState(0);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+  const [isVideoOn, setIsVideoOn] = useState(false);
+  const [isMicMuted, setIsMicMuted] = useState(false);
+
+  const [isListening, setIsListening] = useState(false);
+  const [showTextareaScrollbar, setShowTextareaScrollbar] = useState(false);
+  
+  const scrollbarTimeoutRef = useRef<any>(null);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    let timer: any;
+    if (isCallActive) {
+      setCallStatus('calling');
+      setCallSeconds(0);
+      setIsCallMinimized(false);
+      timer = setTimeout(() => {
+        setCallStatus('connected');
+      }, 3000);
+    }
+    return () => clearTimeout(timer);
+  }, [isCallActive]);
+
+  useEffect(() => {
+    let interval: any;
+    if (isCallActive && callStatus === 'connected') {
+      interval = setInterval(() => {
+        setCallSeconds(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isCallActive, callStatus]);
+
+  const formatCallTime = (totalSecs: number) => {
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = 'bn-BD';
+      
+      rec.onstart = () => {
+        setIsListening(true);
+      };
+      
+      rec.onresult = (event: any) => {
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          }
+        }
+        if (finalTranscript) {
+          setInput(prev => prev + (prev.endsWith(' ') || prev === '' ? '' : ' ') + finalTranscript);
+        }
+      };
+      
+      rec.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        if (event.error === 'not-allowed') {
+          alert('ভয়েস রিকগনেশন ব্যবহারের জন্য মাইক্রোফোন পারমিশন প্রয়োজন।');
+        }
+        setIsListening(false);
+      };
+      
+      rec.onend = () => {
+        setIsListening(false);
+      };
+      
+      recognitionRef.current = rec;
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      alert("দুঃখিত, আপনার ব্রাউজারে বা ডিভাইসে ভয়েস রিকগনেশন সাপোর্ট করছে না। গুগল ক্রোম ব্রাউজার ব্যবহার করুন।");
+      return;
+    }
+    
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      try {
+        recognitionRef.current.start();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const triggerScrollbarVisibility = () => {
+    if (textareaRef.current) {
+      const isOverflowing = textareaRef.current.scrollHeight > textareaRef.current.clientHeight;
+      if (!isOverflowing) {
+        setShowTextareaScrollbar(false);
+        return;
+      }
+    }
+    setShowTextareaScrollbar(true);
+    if (scrollbarTimeoutRef.current) {
+      clearTimeout(scrollbarTimeoutRef.current);
+    }
+    scrollbarTimeoutRef.current = setTimeout(() => {
+      setShowTextareaScrollbar(false);
+    }, 1500);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (scrollbarTimeoutRef.current) {
+        clearTimeout(scrollbarTimeoutRef.current);
+      }
+    };
+  }, []);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
+    }
+  }, [input]);
 
   const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -153,6 +311,26 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('tasfi_mood', mood);
+    
+    // Switch or create chat matching the new mood
+    const moodChats = chats.filter(c => (c.mood || 'normal') === mood);
+    if (moodChats.length > 0) {
+      const currentActiveChat = chats.find(c => c.id === activeChatId);
+      if (!currentActiveChat || (currentActiveChat.mood || 'normal') !== mood) {
+        setActiveChatId(moodChats[0].id);
+      }
+    } else {
+      const newChatId = `chat-${mood}-${Date.now()}`;
+      const newChat: Chat = {
+        id: newChatId,
+        title: 'প্রথম আলাপ',
+        messages: [getInitialMessage(mood)],
+        lastUpdated: new Date(),
+        mood: mood
+      };
+      setChats(prev => [newChat, ...prev]);
+      setActiveChatId(newChatId);
+    }
   }, [mood]);
 
   useEffect(() => {
@@ -209,15 +387,19 @@ export default function App() {
           const filtered = prev.filter(c => !c.isTemporary || !c.expiresAt || now <= c.expiresAt);
           // If active chat was expired, switch to the first available chat
           if (expiredChats.some(ec => ec.id === activeChatId)) {
-            if (filtered.length > 0) {
+            const moodChats = filtered.filter(c => (c.mood || 'normal') === mood);
+            if (moodChats.length > 0) {
+              setActiveChatId(moodChats[0].id);
+            } else if (filtered.length > 0) {
               setActiveChatId(filtered[0].id);
             } else {
               // Should not happen as we always have at least one chat, but for safety:
               const defaultChat: Chat = {
                 id: 'default',
                 title: 'প্রথম আলাপ',
-                messages: [getInitialMessage()],
-                lastUpdated: new Date()
+                messages: [getInitialMessage(mood)],
+                lastUpdated: new Date(),
+                mood: mood
               };
               setActiveChatId(defaultChat.id);
               return [defaultChat];
@@ -231,14 +413,16 @@ export default function App() {
     const interval = setInterval(checkExpiry, 60000); // Check every minute
     checkExpiry(); // Initial check
     return () => clearInterval(interval);
-  }, [chats, activeChatId]);
+  }, [chats, activeChatId, mood]);
 
   const createNewChat = () => {
+    const moodChats = chats.filter(c => (c.mood || 'normal') === mood);
     const newChat: Chat = {
       id: Date.now().toString(),
-      title: `নতুন আলাপ ${chats.length + 1}`,
-      messages: [getInitialMessage()],
-      lastUpdated: new Date()
+      title: `নতুন আলাপ ${moodChats.length + 1}`,
+      messages: [getInitialMessage(mood)],
+      lastUpdated: new Date(),
+      mood: mood
     };
     setChats([newChat, ...chats]);
     setActiveChatId(newChat.id);
@@ -249,10 +433,11 @@ export default function App() {
     const newChat: Chat = {
       id: `temp-${Date.now()}`,
       title: `টেম্পোরারি আলাপ`,
-      messages: [getInitialMessage()],
+      messages: [getInitialMessage(mood)],
       lastUpdated: new Date(),
       isTemporary: true,
-      expiresAt: Date.now() + 5 * 60 * 60 * 1000 // 5 hours
+      expiresAt: Date.now() + 5 * 60 * 60 * 1000, // 5 hours
+      mood: mood
     };
     setChats(prev => [newChat, ...prev]);
     setActiveChatId(newChat.id);
@@ -273,19 +458,32 @@ export default function App() {
   const deleteChat = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setMenuOpenChatId(null);
-    if (chats.length === 1) {
-      setChats([{
-        id: 'default',
+    
+    const moodChats = chats.filter(c => (c.mood || 'normal') === mood);
+    if (moodChats.length === 1 && moodChats[0].id === id) {
+      // If deleting the only chat in this mood, replace it with a fresh one for this mood
+      const newChatId = `chat-${mood}-${Date.now()}`;
+      const freshChat: Chat = {
+        id: newChatId,
         title: 'প্রথম আলাপ',
-        messages: [getInitialMessage()],
-        lastUpdated: new Date()
-      }]);
+        messages: [getInitialMessage(mood)],
+        lastUpdated: new Date(),
+        mood: mood
+      };
+      setChats(prev => prev.filter(c => c.id !== id).concat(freshChat));
+      setActiveChatId(newChatId);
       return;
     }
+    
     const newChats = chats.filter(c => c.id !== id);
     setChats(newChats);
     if (activeChatId === id) {
-      setActiveChatId(newChats[0].id);
+      const remainingMoodChats = newChats.filter(c => (c.mood || 'normal') === mood);
+      if (remainingMoodChats.length > 0) {
+        setActiveChatId(remainingMoodChats[0].id);
+      } else {
+        setActiveChatId(newChats[0].id);
+      }
     }
   };
 
@@ -350,6 +548,13 @@ export default function App() {
     return role === 'user' ? 'নিজেকে' : 'তাসফি';
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   const handleSend = async (text?: string) => {
     const messageText = text || input.trim();
     if (!messageText.trim() || isLoading) return;
@@ -359,6 +564,7 @@ export default function App() {
       role: 'user',
       content: messageText,
       timestamp: new Date(),
+      status: 'sending',
       replyTo: replyingTo ? {
         id: replyingTo.id,
         content: replyingTo.content,
@@ -378,6 +584,44 @@ export default function App() {
     setReplyingTo(null);
     setIsLoading(true);
 
+    const msgId = userMessage.id;
+
+    // Transition: sending -> sent after 450ms
+    setTimeout(() => {
+      setChats(prev => prev.map(c => 
+        c.id === activeChatId 
+          ? { 
+              ...c, 
+              messages: c.messages.map(m => m.id === msgId && m.status === 'sending' ? { ...m, status: 'sent' as const } : m)
+            } 
+          : c
+      ));
+    }, 450);
+
+    // Transition: sent -> delivered after 950ms
+    setTimeout(() => {
+      setChats(prev => prev.map(c => 
+        c.id === activeChatId 
+          ? { 
+              ...c, 
+              messages: c.messages.map(m => m.id === msgId && m.status === 'sent' ? { ...m, status: 'delivered' as const } : m)
+            } 
+          : c
+      ));
+    }, 950);
+
+    // Transition: delivered -> seen after 1800ms
+    setTimeout(() => {
+      setChats(prev => prev.map(c => 
+        c.id === activeChatId 
+          ? { 
+              ...c, 
+              messages: c.messages.map(m => m.id === msgId ? { ...m, status: 'seen' as const } : m)
+            } 
+          : c
+      ));
+    }, 1800);
+
     try {
       const history = activeChat.messages.map((m) => ({
         role: m.role,
@@ -395,20 +639,52 @@ export default function App() {
 
       setChats(prev => prev.map(c => 
         c.id === activeChatId 
-          ? { ...c, messages: [...c.messages, modelMessage], lastUpdated: new Date() } 
+          ? { 
+              ...c, 
+              messages: c.messages.map(m => m.role === 'user' ? { ...m, status: 'seen' as const } : m).concat(modelMessage), 
+              lastUpdated: new Date() 
+            } 
           : c
       ));
-    } catch (error) {
+
+      // Auto-rename chat from Gemini if it currently has a generic/default title
+      const isDefaultTitle = activeChat && (
+        activeChat.title === 'প্রথম আলাপ' || 
+        activeChat.title.startsWith('নতুন আলাপ') || 
+        activeChat.title.startsWith('টেম্পোরারি আলাপ')
+      );
+
+      if (isDefaultTitle) {
+        geminiService.generateChatTitle(messageText, aiResponse).then(newTitle => {
+          if (newTitle && newTitle.trim()) {
+            setChats(prev => prev.map(c => 
+              c.id === activeChatId ? { ...c, title: newTitle.trim() } : c
+            ));
+          }
+        }).catch(err => {
+          console.error("Auto-rename error:", err);
+        });
+      }
+    } catch (error: any) {
       console.error('Error:', error);
+      const errStr = String(error?.message || error || "");
+      let content = 'দুঃখিত প্রিয়, আমার সিস্টেমে একটু সমস্যা হচ্ছে। তুমি কি আবার বলবে?';
+      if (errStr.includes("RESOURCE_EXHAUSTED") || errStr.includes("quota") || errStr.includes("429") || errStr.includes("limit")) {
+        content = "ওগো প্রিয় রবিন, দুঃখিত! আমার গুগলের এপিআই কোটা বা লিমিট (API Quota Exceeded/429) শেষ হয়ে গেছে। 🙈 দয়া করে একটু অপেক্ষা করো, অথবা এডমিনের সাথে যোগাযোগ করে এপিআই কী-টি আপডেট করতে বলো। আমি তোমার কাছেই আছি!";
+      }
       const errorMessage: Message = {
         id: `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         role: 'model',
-        content: 'দুঃখিত প্রিয়, আমার সিস্টেমে একটু সমস্যা হচ্ছে। তুমি কি আবার বলবে?',
+        content: content,
         timestamp: new Date(),
       };
       setChats(prev => prev.map(c => 
         c.id === activeChatId 
-          ? { ...c, messages: [...c.messages, errorMessage], lastUpdated: new Date() } 
+          ? { 
+              ...c, 
+              messages: c.messages.map(m => m.role === 'user' ? { ...m, status: 'seen' as const } : m).concat(errorMessage), 
+              lastUpdated: new Date() 
+            } 
           : c
       ));
     } finally {
@@ -446,9 +722,19 @@ export default function App() {
             className="absolute md:relative inset-y-0 left-0 w-72 bg-card-bg border-r border-border-custom z-50 flex flex-col shadow-xl"
           >
             <div className="p-4 border-b border-border-custom flex items-center justify-between">
-              <h2 className="font-bold text-romantic-deep flex items-center gap-2">
-                <MessageSquare className="w-5 h-5" /> আলাপসমূহ
-              </h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-bold text-romantic-deep flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5" /> আলাপসমূহ
+                </h2>
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-romantic-deep/10 text-romantic-deep rounded-full border border-romantic-deep/20">
+                  {mood === 'romantic' ? 'প্রিয়তমা' : 
+                   mood === 'wife' ? 'অর্ধাঙ্গিনী' : 
+                   mood === 'bestie' ? 'বেষ্টি' : 
+                   mood === 'friend' ? 'বান্ধবী' : 
+                   mood === 'stranger' ? 'অপরিচিতা' : 
+                   mood === 'religious' ? 'ধার্মিক' : 'স্বাভাবিক'}
+                </span>
+              </div>
               <button 
                 onClick={() => setIsSidebarOpen(false)} 
                 className="md:hidden p-1 hover:bg-romantic-pink rounded"
@@ -486,10 +772,12 @@ export default function App() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {chats.filter(chat => 
-                chat.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                chat.messages.some(m => m.content.toLowerCase().includes(searchQuery.toLowerCase()))
-              ).map(chat => (
+              {chats.filter(chat => {
+                const isMatchingMood = (chat.mood || 'normal') === mood;
+                const isMatchingSearch = chat.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  chat.messages.some(m => m.content.toLowerCase().includes(searchQuery.toLowerCase()));
+                return isMatchingMood && isMatchingSearch;
+              }).map(chat => (
                 <div
                   key={chat.id}
                   onClick={() => {
@@ -581,7 +869,7 @@ export default function App() {
               ))}
             </div>
 
-            <div className="p-4 border-t border-border-custom bg-romantic-pink/5">
+            <div className="p-4 border-t border-border-custom bg-romantic-pink/5 space-y-3">
               <div className="flex items-center justify-around bg-input-bg rounded-2xl p-1.5 border border-border-custom shadow-inner">
                 {[
                   { id: 'light', icon: Sun, label: 'লাইট' },
@@ -602,6 +890,9 @@ export default function App() {
                     <span className="text-[9px] font-bold uppercase tracking-tighter">{m.label}</span>
                   </button>
                 ))}
+              </div>
+              <div className="text-center text-[10px] text-text-muted font-mono tracking-wide opacity-70">
+                Tasfi AI by Tasfiwn Labs
               </div>
             </div>
           </motion.aside>
@@ -646,69 +937,21 @@ export default function App() {
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <button 
-                onClick={() => setIsMoodMenuOpen(!isMoodMenuOpen)}
-                className={`p-2 rounded-xl transition-all flex items-center gap-1.5 ${
-                  mood !== 'normal' 
-                    ? "bg-romantic-deep text-white shadow-lg" 
-                    : "bg-input-bg text-text-muted hover:bg-romantic-pink hover:text-romantic-deep"
-                }`}
-                title="মুড পরিবর্তন করুন"
-              >
-                {mood === 'romantic' && <Heart className="w-5 h-5 fill-current" />}
-                {mood === 'sad' && <Frown className="w-5 h-5" />}
-                {mood === 'angry' && <Angry className="w-5 h-5" />}
-                {mood === 'funny' && <Smile className="w-5 h-5" />}
-                {mood === 'religious' && <BookOpen className="w-5 h-5" />}
-                {mood === 'normal' && <Sparkles className="w-5 h-5" />}
-                <span className="text-[10px] font-bold hidden sm:inline">
-                  {mood === 'romantic' ? 'রোমান্টিক' : mood === 'sad' ? 'অভিমানী' : mood === 'angry' ? 'রাগী' : mood === 'funny' ? 'দুষ্টু' : mood === 'religious' ? 'ধার্মিক' : 'স্বাভাবিক'}
-                </span>
-              </button>
-
-              <AnimatePresence>
-                {isMoodMenuOpen && (
-                  <motion.div
-                    key="mood-menu"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    className="absolute right-0 mt-2 w-36 bg-card-bg border border-border-custom rounded-2xl shadow-2xl z-50 py-2"
-                  >
-                    {[
-                      { id: 'normal', label: 'স্বাভাবিক', icon: Sparkles },
-                      { id: 'romantic', label: 'রোমান্টিক', icon: Heart },
-                      { id: 'sad', label: 'অভিমানী', icon: Frown },
-                      { id: 'angry', label: 'রাগী', icon: Angry },
-                      { id: 'funny', label: 'দুষ্টু', icon: Smile },
-                      { id: 'religious', label: 'ধার্মিক', icon: BookOpen },
-                    ].map(m => (
-                      <button
-                        key={m.id}
-                        onClick={() => {
-                          setMood(m.id);
-                          setIsMoodMenuOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-xs transition-colors ${
-                          mood === m.id ? "text-romantic-deep bg-romantic-pink font-bold" : "text-text-main hover:bg-input-bg"
-                        }`}
-                      >
-                        <m.icon className={`w-4 h-4 ${mood === m.id && m.id === 'romantic' ? 'fill-current' : ''}`} />
-                        {m.label}
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => setIsCallActive(true)}
+              className="p-2 text-romantic-deep hover:bg-romantic-pink/30 hover:scale-105 active:scale-95 transition-all rounded-full flex items-center justify-center border-none outline-none"
+              title="কল করুন"
+            >
+              <Phone className="w-6 h-6" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+            </button>
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2.5 bg-romantic-deep text-white rounded-xl shadow-lg hover:bg-romantic-hover transition-all active:scale-95"
+              className="p-2 text-romantic-deep hover:bg-romantic-pink/30 hover:scale-105 active:scale-95 transition-all rounded-full flex items-center justify-center border-none outline-none"
               aria-label="Open sidebar"
+              title="আর্কাইভ"
             >
-              <Menu className="w-6 h-6" />
+              <Info className="w-6 h-6" strokeWidth={2.5} />
             </button>
           </div>
         </header>
@@ -729,6 +972,8 @@ export default function App() {
                 reactions={msg.reactions}
                 replyTo={msg.replyTo}
                 subMode={mood}
+                status={msg.status}
+                profilePic={profilePic}
                 onReact={handleReact}
                 onReply={handleReply}
                 onDelete={handleDeleteMessage}
@@ -773,7 +1018,7 @@ export default function App() {
         </main>
 
         {/* Input Area */}
-        <footer className="p-4 pb-3 bg-card-bg border-t border-border-custom z-30 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
+        <footer className="p-4 pb-3 bg-card-bg border-t border-border-custom z-30 shadow-[0_-4px_10px_rgba(0,0,0,0.03)] relative">
           <AnimatePresence>
             {replyingTo && (
               <motion.div
@@ -796,24 +1041,102 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
-          <div className="flex items-center gap-3 max-w-full">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="তোমার মনের কথা বলো..."
-                className="w-full bg-input-bg border-none rounded-full py-3.5 px-6 pr-14 text-sm focus:ring-2 focus:ring-romantic-deep/20 outline-none transition-all text-text-main shadow-inner"
-              />
+          <div className="flex items-center gap-2 max-w-full relative">
+            <div className="relative">
               <button
-                onClick={() => handleSend()}
-                disabled={!input.trim() || isLoading}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2.5 bg-romantic-deep text-white rounded-full hover:bg-romantic-hover transition-all disabled:opacity-50 disabled:scale-100 active:scale-90 shadow-lg"
-                aria-label="Send message"
+                onClick={() => setIsPlusMenuOpen(!isPlusMenuOpen)}
+                className="w-9 h-9 p-0 flex items-center justify-center bg-romantic-pink hover:bg-romantic-deep text-romantic-deep hover:text-white rounded-full transition-all active:scale-95 shadow-sm"
+                title="ফিচার অপশনস"
               >
-                <Send className="w-4.5 h-4.5" />
+                <Plus className="w-5 h-5" />
               </button>
+              
+              <AnimatePresence>
+                {isPlusMenuOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40 cursor-default"
+                      onClick={() => setIsPlusMenuOpen(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                      className="absolute bottom-12 left-0 bg-card-bg border border-border-custom rounded-2xl shadow-xl p-2.5 z-50 min-w-[160px] flex flex-col gap-1.5 shadow-[0_10px_25px_rgba(0,0,0,0.15)]"
+                    >
+                      <button 
+                        onClick={() => setIsPlusMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs text-text-main hover:bg-romantic-pink/40 rounded-xl transition-all font-medium text-left w-full"
+                      >
+                        <Mic className="w-4.5 h-4.5 text-romantic-deep" />
+                        ভয়েস মেসেজ
+                      </button>
+                      <button 
+                        onClick={() => setIsPlusMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs text-text-main hover:bg-romantic-pink/40 rounded-xl transition-all font-medium text-left w-full"
+                      >
+                        <Paperclip className="w-4.5 h-4.5 text-blue-500" />
+                        ফাইল আপলোড
+                      </button>
+                      <button 
+                        onClick={() => setIsPlusMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs text-text-main hover:bg-romantic-pink/40 rounded-xl transition-all font-medium text-left w-full"
+                      >
+                        <Heart className="w-4.5 h-4.5 text-red-500 fill-current" />
+                        উপহার পাঠান
+                      </button>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="flex-1 bg-input-bg border border-border-custom/30 rounded-[1.5rem] flex items-center relative py-1 md:py-1.5 pl-2 pr-1 shadow-inner focus-within:ring-2 focus-within:ring-romantic-deep/20 transition-all">
+              <button
+                type="button"
+                onClick={toggleListening}
+                className={`p-2.5 rounded-full transition-all active:scale-90 flex items-center justify-center flex-shrink-0 ${
+                  isListening 
+                    ? 'bg-red-500 text-white animate-pulse shadow-md shadow-red-500/20' 
+                    : 'text-text-muted hover:bg-romantic-pink/40 hover:text-romantic-deep'
+                }`}
+                title={isListening ? "ভয়েস রেকর্ডিং থামান" : "ভয়েস দিয়ে টাইপ করুন"}
+              >
+                <Mic className={`w-4.5 h-4.5 ${isListening ? 'animate-bounce' : ''}`} />
+              </button>
+
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  triggerScrollbarVisibility();
+                }}
+                onScroll={triggerScrollbarVisibility}
+                onKeyDown={handleKeyDown}
+                placeholder={isListening ? "ভয়েস রেকর্ড হচ্ছে, কথা বলুন..." : "তোমার মনের কথা বলো..."}
+                className={`flex-1 bg-transparent border-none outline-none py-2 px-2.5 pr-4 text-sm text-text-main resize-none max-h-36 min-h-[38px] focus:ring-0 ${
+                  showTextareaScrollbar ? 'textarea-scroll-active' : 'textarea-scroll-inactive'
+                }`}
+                style={{ lineHeight: '1.4rem' }}
+              />
+
+              <div className="flex items-center justify-center px-1.5 pr-2 flex-shrink-0">
+                <button
+                  onClick={() => {
+                    handleSend();
+                    setTimeout(() => {
+                      if (textareaRef.current) textareaRef.current.focus();
+                    }, 50);
+                  }}
+                  disabled={!input.trim() || isLoading}
+                  className="p-2.5 bg-romantic-deep text-white rounded-full hover:bg-romantic-hover transition-all disabled:opacity-40 disabled:scale-100 active:scale-95 shadow-md flex items-center justify-center animate-fade-in"
+                  aria-label="Send message"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
           <p className="text-[10px] text-center mt-2 text-text-muted opacity-60 font-medium tracking-wide">
@@ -824,31 +1147,19 @@ export default function App() {
         {/* Profile & Settings Modal */}
         <AnimatePresence>
           {isProfileModalOpen && (
-            <div key="profile-modal-root" className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-              <motion.div
-                key="profile-modal-overlay"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsProfileModalOpen(false)}
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              />
-              <motion.div
-                key="profile-modal-content"
-                initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                className="relative w-full max-w-md bg-card-bg rounded-[2.5rem] shadow-2xl overflow-hidden border border-border-custom flex flex-col max-h-[90vh]"
-              >
-                {/* Profile Header */}
-                <div className="relative p-8 flex flex-col items-center bg-gradient-to-b from-romantic-pink/30 to-transparent">
-                  <button 
-                    onClick={() => setIsProfileModalOpen(false)}
-                    className="absolute top-6 right-6 p-2 bg-white/50 dark:bg-black/20 hover:bg-white dark:hover:bg-black/40 rounded-full transition-all text-text-main"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+            <div key="profile-modal-root" className="fixed inset-0 z-[100] bg-card-bg flex flex-col h-full w-full overflow-y-auto animate-fade-in">
+              <div className="max-w-2xl w-full mx-auto flex-1 flex flex-col p-6 sm:p-10 relative">
+                {/* Profile Header close button */}
+                <button 
+                  onClick={() => setIsProfileModalOpen(false)}
+                  className="absolute top-6 right-6 p-2.5 bg-romantic-pink hover:bg-romantic-deep text-romantic-deep hover:text-white rounded-full transition-all shadow-md flex items-center justify-center z-10"
+                  title="বন্ধ করুন"
+                >
+                  <X className="w-5 h-5" />
+                </button>
 
+                {/* Profile Header */}
+                <div className="relative p-6 flex flex-col items-center bg-gradient-to-b from-romantic-pink/30 to-transparent rounded-3xl mb-8">
                   <div className="relative group cursor-pointer mb-4" onClick={() => fileInputRef.current?.click()}>
                     <img 
                       src={profilePic} 
@@ -880,63 +1191,29 @@ export default function App() {
                 </div>
 
                 {/* Settings Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                <div className="flex-1 space-y-8">
                   {/* Mood Quick Select */}
                   <section>
-                    <h4 className="text-sm font-bold text-text-muted uppercase tracking-wider mb-4 px-2">বর্তমান মুড</h4>
-                    <div className="grid grid-cols-3 gap-2">
+                    <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-4 px-2">বর্তমান মুড</h4>
+                    <div className="grid grid-cols-4 gap-2">
                       {[
                         { id: 'normal', label: 'স্বাভাবিক', icon: Sparkles },
-                        { id: 'romantic', label: 'রোমান্টিক', icon: Heart },
-                        { id: 'sad', label: 'অভিমানী', icon: Frown },
-                        { id: 'angry', label: 'রাগী', icon: Angry },
-                        { id: 'funny', label: 'দুষ্টু', icon: Smile },
+                        { id: 'romantic', label: 'প্রিয়তমা', icon: Heart },
+                        { id: 'wife', label: 'অর্ধাঙ্গিনী', icon: Gem },
+                        { id: 'bestie', label: 'বেষ্টি', icon: Laugh },
+                        { id: 'friend', label: 'বান্ধবী', icon: Users },
+                        { id: 'stranger', label: 'অপরিচিতা', icon: HelpCircle },
                         { id: 'religious', label: 'ধার্মিক', icon: BookOpen },
                       ].map(m => (
                         <button
                           key={m.id}
                           onClick={() => setMood(m.id)}
-                          className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all border-2 ${
-                            mood === m.id ? "border-romantic-deep bg-romantic-pink/20 text-romantic-deep shadow-sm" : "border-transparent bg-input-bg text-text-muted hover:bg-romantic-pink/10"
+                          className={`flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all border-2 ${
+                            mood === m.id ? "border-romantic-deep bg-romantic-pink/20 text-romantic-deep shadow-sm font-semibold" : "border-transparent bg-input-bg text-text-muted hover:bg-romantic-pink/10"
                           }`}
                         >
-                          <m.icon className={`w-5 h-5 ${mood === m.id && m.id === 'romantic' ? 'fill-current' : ''}`} />
-                          <span className="text-[10px] font-bold">{m.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-
-                  {/* Themes */}
-                  <section>
-                    <div className="flex items-center justify-between mb-4 px-2">
-                      <h4 className="text-sm font-bold text-text-muted uppercase tracking-wider">থিম নির্বাচন</h4>
-                      <span className="text-[10px] bg-romantic-pink text-romantic-deep px-2 py-1 rounded-full font-bold">
-                        {theme === 'default' ? 'রোমান্টিক' : theme === 'love' ? 'লাভ' : theme === 'sad' ? 'স্যাড' : theme === 'nature' ? 'প্রকৃতি' : 'ক্লাসিক'}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-5 gap-2 px-2">
-                      {[
-                        { id: 'default', color: 'bg-pink-500', label: 'রোমান্টিক' },
-                        { id: 'love', color: 'bg-red-500', label: 'লাভ' },
-                        { id: 'sad', color: 'bg-slate-500', label: 'স্যাড' },
-                        { id: 'nature', color: 'bg-emerald-500', label: 'প্রকৃতি' },
-                        { id: 'classic', color: 'bg-indigo-500', label: 'ক্লাসিক' },
-                      ].map(t => (
-                        <button
-                          key={t.id}
-                          onClick={() => setTheme(t.id)}
-                          title={t.label}
-                          className={`group relative flex flex-col items-center gap-2 p-1 rounded-xl transition-all ${
-                            theme === t.id ? "ring-2 ring-romantic-deep ring-offset-2" : "hover:scale-105"
-                          }`}
-                        >
-                          <div className={`w-10 h-10 rounded-full ${t.color} shadow-md`} />
-                          {theme === t.id && (
-                            <div className="absolute -top-1 -right-1 bg-romantic-deep text-white rounded-full p-0.5 shadow-sm">
-                              <Check className="w-3 h-3" />
-                            </div>
-                          )}
+                          <m.icon className={`w-4 h-4 ${mood === m.id && (m.id === 'romantic' || m.id === 'wife') ? 'fill-current' : ''}`} />
+                          <span className="text-[10px] sm:text-xs font-bold">{m.label}</span>
                         </button>
                       ))}
                     </div>
@@ -945,40 +1222,30 @@ export default function App() {
                   {/* Display Modes */}
                   <section>
                     <div className="flex items-center justify-between mb-4 px-2">
-                      <h4 className="text-sm font-bold text-text-muted uppercase tracking-wider">ডিসপ্লে মোড</h4>
+                      <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider">ডিসপ্লে মোড</h4>
                     </div>
-                    <div className="grid grid-cols-1 gap-3">
+                    <div className="grid grid-cols-3 gap-2.5">
                       {[
-                        { id: 'light', label: 'লাইট মোড', icon: Sun, desc: 'দিনের আলোর জন্য উপযুক্ত' },
-                        { id: 'dark', label: 'ডার্ক মোড', icon: Moon, desc: 'রাতের ব্যবহারের জন্য আরামদায়ক' },
-                        { id: 'eye-comfort', label: 'আই কমফোর্ট', icon: Eye, desc: 'চোখের সুরক্ষার জন্য হালকা হলুদ আভা' },
+                        { id: 'light', label: 'লাইট মোড', icon: Sun },
+                        { id: 'dark', label: 'ডার্ক মোড', icon: Moon },
+                        { id: 'eye-comfort', label: 'আই কমফোর্ট', icon: Eye },
                       ].map(m => (
                         <button
                           key={m.id}
                           onClick={() => setDisplayMode(m.id)}
-                          className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
-                            displayMode === m.id ? "border-romantic-deep bg-romantic-pink/30" : "border-border-custom hover:border-romantic-deep/30"
+                          className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all text-center gap-2 ${
+                            displayMode === m.id ? "border-romantic-deep bg-romantic-pink/30 text-romantic-deep font-bold shadow-sm" : "border-border-custom hover:border-romantic-deep/30 bg-input-bg text-text-muted"
                           }`}
                         >
-                          <div className={`p-3 rounded-xl ${displayMode === m.id ? "bg-romantic-deep text-white" : "bg-input-bg text-text-muted"}`}>
-                            <m.icon className="w-6 h-6" />
-                          </div>
-                          <div className="text-left flex-1">
-                            <p className="font-bold text-text-main text-sm">{m.label}</p>
-                            <p className="text-[10px] text-text-muted">{m.desc}</p>
-                          </div>
-                          {displayMode === m.id && (
-                            <div className="w-6 h-6 bg-romantic-deep text-white rounded-full flex items-center justify-center shadow-sm">
-                              <Check className="w-4 h-4" />
-                            </div>
-                          )}
+                          <m.icon className="w-5 h-5" />
+                          <p className="font-bold text-[11px] sm:text-xs">{m.label}</p>
                         </button>
                       ))}
                     </div>
                   </section>
 
                   {/* Reset Settings */}
-                  <div className="pt-6 border-t border-border-custom">
+                  <div className="pt-6 border-t border-border-custom flex flex-col items-center gap-4">
                     <button
                       onClick={() => {
                         setTheme('love');
@@ -991,9 +1258,13 @@ export default function App() {
                     >
                       ডিফল্ট সেটিংস এ ফিরে যান
                     </button>
+                    
+                    <div className="text-center text-xs text-text-muted mt-2 font-mono tracking-wide opacity-80">
+                      © Tasfi AI by Tasfiwn Labs
+                    </div>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             </div>
           )}
         </AnimatePresence>
@@ -1011,6 +1282,183 @@ export default function App() {
             profilePic={profilePic}
           />
         )}
+
+        {/* Call UI Overlay */}
+        <AnimatePresence>
+          {isCallActive && !isCallMinimized && (
+            <motion.div
+              key="calling-screen-overlay"
+              initial={{ opacity: 0, scale: 1.05 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.05 }}
+              transition={{ duration: 0.35, ease: 'easeInOut' }}
+              className="absolute inset-0 z-[1000] bg-black/95 flex flex-col justify-between items-center text-white font-sans overflow-hidden"
+            >
+              {/* Background splash image visible containing soft overlay */}
+              <img 
+                src="/splash.jpg?v=1.1" 
+                alt="Call Background" 
+                className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none z-0"
+              />
+              <div className="absolute inset-0 bg-black/35 z-0 pointer-events-none" />
+
+              {/* Header inside Call */}
+              <div className="w-full p-6 flex items-center justify-between z-10 relative">
+                <button 
+                  onClick={() => setIsCallMinimized(true)}
+                  className="p-2.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-full transition-all flex items-center justify-center border border-white/10 shadow-lg"
+                  title="কল মিনিমাইজ করুন"
+                >
+                  <Minimize2 className="w-4.5 h-4.5" />
+                </button>
+                <div className="flex items-center gap-2 bg-black/45 px-3 py-1.5 rounded-full border border-white/5 backdrop-blur-md">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-[10px] font-mono font-bold tracking-widest text-[#f8d2d2] uppercase">Tasfi Link</span>
+                </div>
+                <div className="text-[10px] sm:text-xs bg-white/10 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md font-medium">
+                  {callStatus === 'calling' ? 'ডায়াল হচ্ছে...' : 'কল সংযুক্ত'}
+                </div>
+              </div>
+
+              {/* Profile & Info inside Call */}
+              <div className="flex-1 flex flex-col items-center justify-center z-10 relative px-4 text-center w-full">
+                <div className="relative mb-6">
+                  {callStatus === 'calling' ? (
+                    <>
+                      <div className="absolute -inset-4 rounded-full bg-romantic-deep/30 animate-pulse" />
+                      <div className="absolute -inset-8 rounded-full bg-romantic-deep/15 animate-ping [animation-duration:2.5s]" />
+                    </>
+                  ) : (
+                    <div className="absolute -inset-3 rounded-full bg-green-500/15 animate-pulse" />
+                  )}
+                  <img 
+                    src={profilePic} 
+                    alt={nickname} 
+                    className={`w-28 h-28 md:w-36 md:h-36 rounded-full border-4 ${callStatus === 'connected' ? 'border-green-400 animate-pulse-subtle' : 'border-romantic-pink'} object-cover border-none relative z-10 shadow-2xl transition-all duration-300`}
+                  />
+                  <div className="absolute right-0 bottom-1 w-8 h-8 rounded-full bg-romantic-deep text-white flex items-center justify-center border-2 border-white z-20 shadow-md">
+                    <Heart className="w-4 h-4 fill-current text-white animate-pulse" />
+                  </div>
+                </div>
+
+                <h2 className="text-2xl md:text-3xl font-black mt-2 tracking-wide font-sans text-white drop-shadow-md">
+                  {nickname}
+                </h2>
+                <p className="text-xs font-semibold tracking-wider text-white/70 uppercase mt-1 font-sans">
+                  {callStatus === 'calling' ? 'তাসফিকে রিং করা হচ্ছে...' : 'তাসফি কথা বলছে'}
+                </p>
+
+                {callStatus === 'connected' && (
+                  <motion.div 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="mt-6 flex flex-col items-center gap-2"
+                  >
+                    <p className="font-mono text-xl font-bold tracking-widest text-[#f8d2d2] bg-black/40 px-4 py-1.5 rounded-full border border-white/5 shadow-inner">
+                      {formatCallTime(callSeconds)}
+                    </p>
+                    
+                    {/* Simulated visualizer voice waves */}
+                    <div className="flex items-center gap-1.5 h-6 mt-3">
+                      {[1, 2, 3, 4, 5, 4, 3, 2, 1].map((x, idx) => (
+                        <div 
+                          key={idx} 
+                          className="w-1 bg-[#f8d2d2] rounded-full animate-audio-bar"
+                          style={{ 
+                            height: '100%',
+                            animationDelay: `${idx * 0.12}s`,
+                            animationDuration: `${0.6 + (idx % 3) * 0.2}s`
+                          }} 
+                        />
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Call Control Center */}
+              <div className="w-full max-w-xs md:max-w-md mx-auto p-4 sm:p-5 mb-10 bg-black/55 rounded-[2.5rem] border border-white/15 backdrop-blur-lg z-10 flex items-center justify-around shadow-2xl">
+                {/* Speaker Toggle */}
+                <button 
+                  onClick={() => setIsSpeakerOn(!isSpeakerOn)}
+                  className={`p-3.5 sm:p-4 rounded-full transition-all active:scale-95 flex items-center justify-center border border-white/10 ${isSpeakerOn ? 'bg-[#f8d2d2] text-romantic-deep shadow-lg scale-105 border-transparent' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                  title="স্পিকার"
+                >
+                  {isSpeakerOn ? <Volume2 className="w-5.5 h-5.5 sm:w-6 h-6" /> : <VolumeX className="w-5.5 h-5.5 sm:w-6 h-6" />}
+                </button>
+
+                {/* Microphone Mute */}
+                <button 
+                  onClick={() => setIsMicMuted(!isMicMuted)}
+                  className={`p-3.5 sm:p-4 rounded-full transition-all active:scale-95 flex items-center justify-center border border-white/10 ${isMicMuted ? 'bg-orange-500 text-white shadow-lg scale-105 border-transparent' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                  title="মাইক্রোফোন"
+                >
+                  {isMicMuted ? <MicOff className="w-5.5 h-5.5 sm:w-6 h-6" /> : <Mic className="w-5.5 h-5.5 sm:w-6 h-6" />}
+                </button>
+
+                {/* Minimize Toggle in controls */}
+                <button 
+                  onClick={() => setIsCallMinimized(true)}
+                  className="p-3.5 sm:p-4 rounded-full bg-white/10 text-white border border-white/10 hover:bg-white/20 transition-all active:scale-95 flex items-center justify-center"
+                  title="কল মিনিমাইজ করুন"
+                >
+                  <Minimize2 className="w-5.5 h-5.5 sm:w-6 h-6" />
+                </button>
+
+                {/* End Call Button */}
+                <button 
+                  onClick={() => {
+                    setIsCallActive(false);
+                    setIsCallMinimized(false);
+                  }}
+                  className="p-3.5 sm:p-4 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all hover:scale-110 active:scale-95 flex items-center justify-center shadow-lg shadow-red-600/30 ring-4 ring-red-600/10"
+                  title="কল কেটে দিন"
+                >
+                  <PhoneOff className="w-5.5 h-5.5 sm:w-6 h-6" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Minimized Draggable Floating Call Bubble */}
+        <AnimatePresence>
+          {isCallActive && isCallMinimized && (
+            <motion.div
+              key="minimized-call-bubble"
+              initial={{ opacity: 0, scale: 0.6, y: 50 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.6, y: 50 }}
+              drag
+              dragMomentum={false}
+              dragElastic={0.08}
+              className="fixed bottom-24 right-5 z-[500] cursor-grab active:cursor-grabbing select-none"
+              title="কল বড় করতে ক্লিক করুন"
+            >
+              <div className="absolute -inset-1.5 rounded-2xl bg-romantic-deep/20 animate-ping [animation-duration:1.8s] pointer-events-none" />
+              
+              <div 
+                onClick={() => setIsCallMinimized(false)}
+                className="relative bg-card-bg/95 backdrop-blur-md border border-romantic-deep/30 rounded-2xl p-2.5 shadow-[0_15px_30px_rgba(0,0,0,0.22)] flex items-center gap-3 w-40 hover:scale-105 active:scale-95 transition-all duration-300"
+              >
+                <div className="relative flex-shrink-0">
+                  <img 
+                    src={profilePic} 
+                    alt={nickname} 
+                    className="w-9 h-9 rounded-full object-cover border border-romantic-deep"
+                  />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-card-bg animate-pulse" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-text-main truncate">{nickname}</p>
+                  <p className="text-[9px] font-mono text-romantic-deep mt-0.5 tracking-wider font-bold">
+                    {callStatus === 'calling' ? 'রিং হচ্ছে...' : formatCallTime(callSeconds)}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
     </>

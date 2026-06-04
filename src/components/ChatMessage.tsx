@@ -24,6 +24,8 @@ interface ChatMessageProps {
     role: 'user' | 'model';
   };
   subMode?: string;
+  status?: 'sending' | 'sent' | 'delivered' | 'seen';
+  profilePic?: string;
   onReact?: (id: string, emoji: string) => void;
   onReply?: (id: string) => void;
   onDelete?: (id: string) => void;
@@ -31,6 +33,46 @@ interface ChatMessageProps {
 }
 
 const EMOJIS = ['❤️', '😂', '👍', '😮', '🙏'];
+
+const CodeBlock: React.FC<{ language: string; value: string }> = ({ language, value }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="my-3 rounded-2xl overflow-hidden border border-border-custom/40 shadow-sm bg-neutral-900 border-neutral-800 text-neutral-100 font-mono text-xs md:text-sm max-w-full select-text" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center justify-between px-4 py-2 bg-neutral-850 border-b border-neutral-800/60 text-neutral-400 font-sans font-bold select-none text-[10px] sm:text-xs">
+        <span className="tracking-widest uppercase text-romantic-pink/80">{language || 'code'}</span>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-2.5 py-1 rounded-xl border border-white/5 active:scale-95"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3.5 h-3.5 text-green-400" />
+              <span className="text-green-400">কপি হয়েছে!</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-3.5 h-3.5" />
+              <span>কপি করুন</span>
+            </>
+          )}
+        </button>
+      </div>
+      <div className="p-4 overflow-x-auto overflow-y-auto max-h-[320px] max-w-full custom-code-scroll bg-neutral-900 border-none">
+        <pre className="font-mono text-[11px] sm:text-xs md:text-sm leading-relaxed text-neutral-200 whitespace-pre">
+          <code>{value}</code>
+        </pre>
+      </div>
+    </div>
+  );
+};
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({ 
   id, 
@@ -41,6 +83,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   expiresAt,
   replyTo,
   subMode = 'normal',
+  status,
+  profilePic,
   onReact,
   onReply,
   onDelete,
@@ -52,6 +96,30 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const [editValue, setEditValue] = useState(content);
   
   const [isCopied, setIsCopied] = useState(false);
+  const [showStatusText, setShowStatusText] = useState(false);
+  const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (statusTimeoutRef.current) {
+        clearTimeout(statusTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleToggleStatusText = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isEditing) return;
+    setShowStatusText(prev => !prev);
+    
+    if (statusTimeoutRef.current) {
+      clearTimeout(statusTimeoutRef.current);
+    }
+    
+    statusTimeoutRef.current = setTimeout(() => {
+      setShowStatusText(false);
+    }, 4500);
+  };
   
   // Swipe to Reply State
   const dragX = useMotionValue(0);
@@ -287,8 +355,15 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           dragElastic={{ left: 0, right: 0.5 }}
           onDragEnd={handleDragEnd}
           style={{ x: dragX }}
-          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+          initial={{ opacity: 0, y: 30, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ 
+            type: "spring", 
+            stiffness: 280, 
+            damping: 22, 
+            mass: 0.85,
+            opacity: { duration: 0.25 }
+          }}
           onMouseDown={handleLongPressStart}
           onMouseUp={handleLongPressEnd}
           onMouseLeave={handleLongPressEnd}
@@ -314,8 +389,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           )}
 
           <div
+            onClick={handleToggleStatusText}
             className={cn(
-              "relative px-5 py-3.5 rounded-2xl shadow-sm transition-all duration-200",
+              "relative px-5 py-3.5 rounded-2xl shadow-sm transition-all duration-200 select-text cursor-pointer",
               isUser 
                 ? "bg-romantic-deep text-white rounded-tr-none shadow-romantic-deep/10" 
                 : "bg-card-bg text-text-main rounded-tl-none border border-border-custom shadow-black/5",
@@ -323,12 +399,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             )}
           >
             {isEditing ? (
-              <div className="flex flex-col gap-2 min-w-[200px] w-full">
+              <div className="flex flex-col gap-2 min-w-[200px] w-full" onClick={(e) => e.stopPropagation()}>
                 <textarea
                   autoFocus
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
-                  className="w-full bg-transparent border-none outline-none text-sm resize-none focus:ring-0 p-0"
+                  className="w-full bg-transparent border-none outline-none text-sm resize-none focus:ring-0 p-0 text-white"
                   rows={3}
                 />
                 <div className="flex justify-end gap-2 border-t border-white/20 pt-2">
@@ -342,17 +418,44 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               </div>
             ) : (
               <div className="markdown-body text-sm md:text-base leading-relaxed break-words overflow-wrap-anywhere">
-                <Markdown>{content}</Markdown>
+                <Markdown
+                  components={{
+                    pre({ children }) {
+                      return <>{children}</>;
+                    },
+                    code({ className, children, ...props }) {
+                      const match = /language-(\w+)/.exec(className || '');
+                      const codeString = String(children).replace(/\n$/, '');
+                      const isInline = !match && !codeString.includes('\n');
+                      
+                      if (isInline) {
+                        return (
+                          <code 
+                            className="px-1.5 py-0.5 rounded-lg font-mono text-xs font-bold bg-romantic-pink/15 text-romantic-deep border border-romantic-pink/15" 
+                            {...props}
+                          >
+                            {children}
+                          </code>
+                        );
+                      }
+
+                      const language = match ? match[1] : 'code';
+                      return <CodeBlock language={language} value={codeString} />;
+                    }
+                  }}
+                >
+                  {content}
+                </Markdown>
               </div>
             )}
             
             <div 
               className={cn(
-                "text-[10px] mt-1 opacity-60 flex items-center justify-between gap-4",
+                "text-[10px] mt-1 opacity-60 flex items-center justify-between gap-4 select-none",
                 isUser ? "text-white/80" : "text-text-muted"
               )}
             >
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 animate-fade-in">
                 <span>{timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 {expiresAt && <Clock className="w-2.5 h-2.5" />}
               </div>
@@ -379,7 +482,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             {/* Reactions Display */}
             {reactions.length > 0 && (
               <div className={cn(
-                "absolute -bottom-3 flex flex-wrap gap-1",
+                "absolute -bottom-3 flex flex-wrap gap-1 z-20",
                 isUser ? "right-0" : "left-0"
               )}>
                 {Array.from(new Set(reactions)).map((emoji) => (
@@ -398,6 +501,66 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               </div>
             )}
           </div>
+
+          {/* Temporary Messenger-style text status */}
+          <AnimatePresence>
+            {showStatusText && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                animate={{ opacity: 0.8, height: "auto", scale: 1 }}
+                exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className={cn(
+                  "text-[10px] select-none text-text-muted font-medium mt-1 flex items-center gap-1 px-1",
+                  isUser ? "justify-end text-right" : "justify-start text-left"
+                )}
+              >
+                <span>{timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span>•</span>
+                <span>
+                  {isUser ? (
+                    status === 'sending' ? 'পাঠানো হচ্ছে...' :
+                    status === 'sent' ? 'পাঠানো হয়েছে' :
+                    status === 'delivered' ? 'ডেলিভারড' :
+                    status === 'seen' ? 'দেখেছে' : 'পাঠানো হয়েছে'
+                  ) : (
+                    'পঠিত'
+                  )}
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Messenger-style Quick Status Icon Bubble */}
+          {isUser && status && (
+            <div className="flex justify-end w-full mt-1 pr-1 select-none h-4">
+              {status === 'sending' && (
+                <div className="w-3.5 h-3.5 rounded-full border border-romantic-deep/40 border-t-transparent animate-spin" title="পাঠানো হচ্ছে..." />
+              )}
+              {status === 'sent' && (
+                <div className="w-3.5 h-3.5 rounded-full border border-romantic-deep/30 flex items-center justify-center bg-transparent" title="পাঠানো হয়েছে">
+                  <Check className="w-2.5 h-2.5 text-romantic-deep/60" />
+                </div>
+              )}
+              {status === 'delivered' && (
+                <div className="w-3.5 h-3.5 rounded-full bg-romantic-deep/50 flex items-center justify-center shadow-sm" title="ডেলিভারড">
+                  <Check className="w-2.5 h-2.5 text-white scale-[0.8]" />
+                </div>
+              )}
+              {status === 'seen' && (
+                <img 
+                  src={profilePic || "/profile.png?v=1.1"} 
+                  alt="seen" 
+                  referrerPolicy="no-referrer"
+                  className="w-4.5 h-4.5 rounded-full object-cover border border-romantic-pink/30 shadow-sm hover:scale-110 transition-transform duration-250 cursor-pointer" 
+                  title="দেখেছে"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "/profile.png?v=1.1";
+                  }}
+                />
+              )}
+            </div>
+          )}
           
           <AnimatePresence>
             {isCopied && (
@@ -405,7 +568,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
-                className="absolute -top-8 bg-green-500 text-white text-[10px] px-2 py-1 rounded-full font-bold shadow-lg flex items-center gap-1"
+                className="absolute -top-8 bg-green-500 text-white text-[10px] px-2 py-1 rounded-full font-bold shadow-lg flex items-center gap-1 z-30"
               >
                 <Check className="w-2.5 h-2.5" /> কপি হয়েছে
               </motion.div>
