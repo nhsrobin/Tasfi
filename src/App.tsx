@@ -721,19 +721,30 @@ export default function App() {
             exit={{ x: '-100%' }}
             className="absolute md:relative inset-y-0 left-0 w-72 bg-card-bg border-r border-border-custom z-50 flex flex-col shadow-xl"
           >
-            <div className="p-4 border-b border-border-custom flex items-center justify-between">
+            <div className="p-4 border-b border-border-custom flex items-center justify-between bg-card-bg/50 backdrop-blur-sm shadow-sm">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="font-bold text-romantic-deep flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5" /> আলাপসমূহ
+                <h2 className="font-bold text-romantic-deep flex items-center gap-2 text-sm md:text-base">
+                  <MessageSquare className="w-5 h-5 animate-pulse" /> আলাপসমূহ
                 </h2>
-                <span className="text-[10px] font-bold px-2 py-0.5 bg-romantic-deep/10 text-romantic-deep rounded-full border border-romantic-deep/20">
-                  {mood === 'romantic' ? 'প্রিয়তমা' : 
-                   mood === 'wife' ? 'অর্ধাঙ্গিনী' : 
-                   mood === 'bestie' ? 'বেষ্টি' : 
-                   mood === 'friend' ? 'বান্ধবী' : 
-                   mood === 'stranger' ? 'অপরিচিতা' : 
-                   mood === 'religious' ? 'ধার্মিক' : 'স্বাভাবিক'}
-                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMoodMenuOpen(true);
+                  }}
+                  className="text-[10px] font-bold px-2 py-0.5 bg-romantic-deep/15 text-romantic-deep rounded-full border border-romantic-deep/20 hover:bg-romantic-deep hover:text-white transition-all cursor-pointer flex items-center gap-1 hover:scale-105 active:scale-95"
+                  title="মুড পরিবর্তন করুন"
+                >
+                  <span>
+                    {mood === 'romantic' ? '❤️ প্রিয়তমা' : 
+                     mood === 'wife' ? '💎 অর্ধাঙ্গিনী' : 
+                     mood === 'bestie' ? '😎 বেষ্টি' : 
+                     mood === 'friend' ? '😊 বান্ধবী' : 
+                     mood === 'stranger' ? '😶 অপরিচিতা' : 
+                     mood === 'religious' ? '📖 ধার্মিক' : '✨ স্বাভাবিক'}
+                  </span>
+                  <span className="text-[8px] opacity-75">▼</span>
+                </button>
               </div>
               <button 
                 onClick={() => setIsSidebarOpen(false)} 
@@ -901,17 +912,19 @@ export default function App() {
 
       <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Header */}
-        <header className="bg-card-bg/80 backdrop-blur-md border-b border-border-custom px-5 md:px-8 py-4 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+        {/* Premium Head-turner Header */}
+        <header className="bg-gradient-to-r from-card-bg/95 via-card-bg/90 to-card-bg/95 backdrop-blur-lg border-b border-romantic-pink/20 px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-[0_4px_20px_0_rgba(253,164,186,0.08)]">
           <div 
-            className="flex items-center gap-4 cursor-pointer group"
+            className="flex items-center gap-3 md:gap-4 cursor-pointer group"
             onClick={() => setIsProfileModalOpen(true)}
           >
             <div className="relative">
+              <div className="absolute -inset-0.5 rounded-full bg-gradient-to-tr from-romantic-hover via-romantic-pink to-romantic-deep opacity-75 group-hover:opacity-100 transition-opacity blur-[1px] animate-pulse"></div>
               <img 
                 src={profilePic} 
                 alt={nickname} 
                 referrerPolicy="no-referrer"
-                className="w-11 h-11 md:w-14 md:h-14 rounded-full object-cover border-2 border-romantic-deep/20 shadow-md group-hover:border-romantic-deep transition-all"
+                className="w-11 h-11 md:w-13 md:h-13 rounded-full object-cover relative z-10 border-2 border-white dark:border-slate-800 shadow-md group-hover:scale-102 transition-transform duration-300"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   if (target.src !== window.location.origin + PROFILE_PIC) {
@@ -919,39 +932,63 @@ export default function App() {
                   }
                 }}
               />
-              <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-card-bg rounded-full shadow-sm"></div>
+              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-card-bg rounded-full shadow-sm z-20 flex items-center justify-center">
+                <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping opacity-75 absolute"></span>
+                <span className="w-1 h-1 bg-white rounded-full"></span>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h1 className="font-bold text-text-main text-lg md:text-xl flex items-center gap-1.5 truncate group-hover:text-romantic-deep transition-colors tracking-tight">
-                {nickname} <Sparkles className="w-4 h-4 text-romantic-deep" />
+            <div className="min-w-0 flex-1">
+              <h1 className="font-extrabold text-text-main text-base md:text-lg flex items-center gap-2 truncate group-hover:text-romantic-deep transition-colors tracking-tight">
+                <span className="truncate">{nickname}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMoodMenuOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-romantic-deep text-white text-[9px] md:text-[10px] font-bold rounded-full hover:shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0 border border-white/5 shadow-sm"
+                  title="মুড পরিবর্তন করুন"
+                >
+                  <span>
+                    {mood === 'romantic' ? '❤️ প্রিয়তমা' : 
+                     mood === 'wife' ? '💎 অর্ধাঙ্গিনী' : 
+                     mood === 'bestie' ? '😎 বেষ্টি' : 
+                     mood === 'friend' ? '😊 বান্ধবী' : 
+                     mood === 'stranger' ? '😶 অপরিচিতা' : 
+                     mood === 'religious' ? '📖 ধার্মিক' : '✨ স্বাভাবিক'}
+                  </span>
+                  <span className="text-[7px] opacity-85">▼</span>
+                </button>
               </h1>
-              <p className="text-[11px] md:text-xs font-medium opacity-80">
+              <p className="text-[10px] md:text-xs font-semibold opacity-75 mt-0.5">
                 {activeChat.isTemporary ? (
-                  <span className="flex items-center gap-1.5 text-orange-500">
-                    <Clock className="w-3.5 h-3.5" /> টেম্পোরারি চ্যাট (৫ ঘণ্টা পর মুছে যাবে)
+                  <span className="flex items-center gap-1 text-orange-500 font-mono">
+                    <Clock className="w-3 h-3" /> টেম্পোরারি চ্যাট (৫ ঘণ্টা পর মুছে যাবে)
                   </span>
                 ) : (
-                  <span className="text-romantic-deep">তোমার প্রিয় সঙ্গিনী</span>
+                  <span className="text-romantic-deep font-sans flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-romantic-hover animate-pulse" /> তোমার প্রিয় সঙ্গিনী
+                  </span>
                 )}
               </p>
             </div>
           </div>
           
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <button 
               onClick={() => setIsCallActive(true)}
-              className="p-2 text-romantic-deep hover:bg-romantic-pink/30 hover:scale-105 active:scale-95 transition-all rounded-full flex items-center justify-center border-none outline-none"
+              className="p-2 bg-romantic-pink/35 text-romantic-deep hover:bg-romantic-deep hover:text-white hover:scale-105 active:scale-95 transition-all rounded-full flex items-center justify-center border border-romantic-pink/25 shadow-sm cursor-pointer"
               title="কল করুন"
             >
-              <Phone className="w-6 h-6" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+              <Phone className="w-5 h-5 md:w-5.5 md:h-5.5" strokeWidth={2.4} />
             </button>
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2 text-romantic-deep hover:bg-romantic-pink/30 hover:scale-105 active:scale-95 transition-all rounded-full flex items-center justify-center border-none outline-none"
+              className="p-2 bg-romantic-pink/35 text-romantic-deep hover:bg-romantic-deep hover:text-white hover:scale-105 active:scale-95 transition-all rounded-full flex items-center justify-center border border-romantic-pink/25 shadow-sm cursor-pointer"
               aria-label="Open sidebar"
               title="আর্কাইভ"
             >
-              <Info className="w-6 h-6" strokeWidth={2.5} />
+              <Menu className="w-5 h-5 md:w-5.5 md:h-5.5" strokeWidth={2.4} />
             </button>
           </div>
         </header>
@@ -1091,7 +1128,7 @@ export default function App() {
               </AnimatePresence>
             </div>
 
-            <div className="flex-1 bg-input-bg border border-border-custom/30 rounded-[1.5rem] flex items-center relative py-1 md:py-1.5 pl-2 pr-1 shadow-inner focus-within:ring-2 focus-within:ring-romantic-deep/20 transition-all">
+            <div className="flex-1 min-w-0 bg-input-bg border border-border-custom/30 rounded-[1.5rem] flex items-center relative py-1 md:py-1.5 pl-2 pr-1 shadow-inner focus-within:ring-2 focus-within:ring-romantic-deep/20 transition-all">
               <button
                 type="button"
                 onClick={toggleListening}
@@ -1266,6 +1303,70 @@ export default function App() {
                 </div>
               </div>
             </div>
+          )}
+        </AnimatePresence>
+
+        {/* Floating Quick Mood Selector Dropdown bottom-sheet overlay */}
+        <AnimatePresence>
+          {isMoodMenuOpen && (
+            <>
+              <motion.div 
+                key="mood-overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px]" 
+                onClick={() => setIsMoodMenuOpen(false)} 
+              />
+              <motion.div
+                key="mood-picker-popup"
+                initial={{ opacity: 0, scale: 0.95, y: 30 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 30 }}
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-sm w-[90%] bg-card-bg border border-border-custom rounded-[2rem] shadow-2xl p-6 z-50 flex flex-col gap-4"
+              >
+                <div className="flex items-center justify-between border-b border-border-custom pb-3">
+                  <h3 className="font-bold text-base text-romantic-deep flex items-center gap-2">
+                    <Heart className="w-5 h-5 fill-current text-romantic-deep animate-pulse" /> মুড পরিবর্তন করুন
+                  </h3>
+                  <button 
+                    onClick={() => setIsMoodMenuOpen(false)}
+                    className="p-1.5 hover:bg-romantic-pink hover:text-romantic-hover rounded-full text-text-muted transition-colors"
+                  >
+                    <X className="w-4.5 h-4.5" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                  {[
+                    { id: 'normal', label: 'স্বাভাবিক', icon: Sparkles, color: 'text-sky-500 bg-sky-50 dark:bg-sky-950/20' },
+                    { id: 'romantic', label: 'প্রিয়তমা', icon: Heart, color: 'text-romantic-deep bg-pink-50 dark:bg-pink-950/20' },
+                    { id: 'wife', label: 'অর্ধাঙ্গিনী', icon: Gem, color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/20' },
+                    { id: 'bestie', label: 'বেষ্টি', icon: Laugh, color: 'text-green-500 bg-emerald-50 dark:bg-emerald-950/20' },
+                    { id: 'friend', label: 'বান্ধবী', icon: Users, color: 'text-violet-500 bg-violet-50 dark:bg-violet-950/20' },
+                    { id: 'stranger', label: 'অপরিচিতা', icon: HelpCircle, color: 'text-zinc-500 bg-zinc-50 dark:bg-zinc-950/20' },
+                    { id: 'religious', label: 'ধার্মিক', icon: BookOpen, color: 'text-teal-500 bg-teal-50 dark:bg-teal-950/20' },
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        setMood(m.id);
+                        setIsMoodMenuOpen(false);
+                      }}
+                      className={`flex items-center gap-2.5 p-3 rounded-2xl border transition-all text-left font-bold text-xs ${
+                        mood === m.id 
+                          ? "border-romantic-deep bg-romantic-pink/35 text-romantic-deep shadow-md scale-[1.03]" 
+                          : "border-border-custom/40 bg-input-bg text-text-muted hover:bg-romantic-pink/15 hover:text-romantic-deep"
+                      }`}
+                    >
+                      <div className={`p-1.5 rounded-lg ${m.color}`}>
+                        <m.icon className={`w-4 h-4 ${mood === m.id && (m.id === 'romantic' || m.id === 'wife') ? 'fill-current' : ''}`} />
+                      </div>
+                      <span className="truncate">{m.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
 

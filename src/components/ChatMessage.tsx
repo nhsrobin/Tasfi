@@ -34,6 +34,75 @@ interface ChatMessageProps {
 
 const EMOJIS = ['❤️', '😂', '👍', '😮', '🙏'];
 
+const highlightCode = (code: string) => {
+  const escapeHtml = (text: string) => {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  };
+
+  const tokens: string[] = [];
+  const tokenRegex = /([A-Za-z0-9_]+)|(\/\/.*|\/\*[\s\S]*?\*\/)|('(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`[\s\S]*?`)|([+\-*/%&=<>!|&^~?:]+)|(\s+)|(.)/g;
+
+  let match;
+  while ((match = tokenRegex.exec(code)) !== null) {
+    const word = match[1];
+    const comment = match[2];
+    const str = match[3];
+    const op = match[4];
+    const ws = match[5];
+    const other = match[6];
+
+    const tokenText = match[0];
+
+    if (comment) {
+      tokens.push(`<span class="text-neutral-500 italic font-mono">${escapeHtml(tokenText)}</span>`);
+    } else if (str) {
+      tokens.push(`<span class="text-emerald-400 font-medium font-mono">${escapeHtml(tokenText)}</span>`);
+    } else if (word) {
+      const keywords = [
+        'const', 'let', 'var', 'function', 'return', 'import', 'export', 'from', 'default',
+        'class', 'extends', 'if', 'else', 'for', 'while', 'do', 'switch', 'case', 'break',
+        'continue', 'new', 'try', 'catch', 'finally', 'throw', 'async', 'await', 'yield',
+        'type', 'interface', 'enum', 'public', 'private', 'protected', 'readonly', 'static',
+        'get', 'set', 'as', 'of', 'in', 'instanceof', 'typeof', 'void', 'true', 'false',
+        'null', 'undefined', 'NaN', 'def', 'elif', 'print', 'import', 'as', 'with', 'lambda',
+        'struct', 'union', 'typedef', 'volatile', 'register', 'sizeof', 'signed', 'unsigned'
+      ];
+      const builtins = [
+        'React', 'useState', 'useEffect', 'useRef', 'useMemo', 'useCallback', 'console',
+        'window', 'document', 'process', 'global', 'require', 'module', 'exports', 'JSON',
+        'Math', 'Date', 'String', 'Number', 'Boolean', 'Array', 'Object', 'Map', 'Set',
+        'Promise', 'Error', 'self', 'args', 'kwargs', 'list', 'dict', 'tuple', 'set', 'len'
+      ];
+      
+      if (keywords.includes(word)) {
+        tokens.push(`<span class="text-rose-400 font-bold font-mono">${escapeHtml(tokenText)}</span>`);
+      } else if (builtins.includes(word)) {
+        tokens.push(`<span class="text-violet-400 font-medium font-mono">${escapeHtml(tokenText)}</span>`);
+      } else if (/^\d+$/.test(word)) {
+        tokens.push(`<span class="text-amber-400 font-bold font-mono">${escapeHtml(tokenText)}</span>`);
+      } else {
+        // Peek to check for function call
+        const nextCharIndex = tokenRegex.lastIndex;
+        const nextChar = code.substring(nextCharIndex, nextCharIndex + 10).trim();
+        if (nextChar.startsWith('(')) {
+          tokens.push(`<span class="text-cyan-400 font-medium font-mono">${escapeHtml(tokenText)}</span>`);
+        } else {
+          tokens.push(escapeHtml(tokenText));
+        }
+      }
+    } else if (op) {
+      tokens.push(`<span class="text-amber-200 opacity-90 font-mono">${escapeHtml(tokenText)}</span>`);
+    } else {
+      tokens.push(escapeHtml(tokenText));
+    }
+  }
+
+  return tokens.join('');
+};
+
 const CodeBlock: React.FC<{ language: string; value: string }> = ({ language, value }) => {
   const [copied, setCopied] = useState(false);
 
@@ -65,9 +134,9 @@ const CodeBlock: React.FC<{ language: string; value: string }> = ({ language, va
           )}
         </button>
       </div>
-      <div className="p-4 overflow-x-auto overflow-y-auto max-h-[320px] max-w-full custom-code-scroll bg-neutral-900 border-none">
-        <pre className="font-mono text-[11px] sm:text-xs md:text-sm leading-relaxed text-neutral-200 whitespace-pre">
-          <code>{value}</code>
+      <div className="p-4 w-full overflow-hidden">
+        <pre className="font-mono text-[11px] sm:text-xs md:text-sm leading-relaxed text-neutral-200 whitespace-pre-wrap break-words overflow-wrap-anywhere scrollbar-none">
+          <code dangerouslySetInnerHTML={{ __html: highlightCode(value) }} />
         </pre>
       </div>
     </div>
@@ -420,9 +489,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               <div className="markdown-body text-sm md:text-base leading-relaxed break-words overflow-wrap-anywhere">
                 <Markdown
                   components={{
-                    pre({ children }) {
-                      return <>{children}</>;
-                    },
                     code({ className, children, ...props }) {
                       const match = /language-(\w+)/.exec(className || '');
                       const codeString = String(children).replace(/\n$/, '');

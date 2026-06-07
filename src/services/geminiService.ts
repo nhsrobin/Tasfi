@@ -122,8 +122,8 @@ export class GeminiService {
       const title = response.text?.trim()?.replace(/["'“”]/g, '');
       return title || "আলাপ";
     } catch (error) {
-      console.warn("Could not generate chat title (using fallback):", error);
-      return firstMessage.slice(0, 15).trim() + (firstMessage.length > 15 ? '...' : '');
+      console.error("Failed to generate chat title:", error);
+      return firstMessage.slice(0, 12) + (firstMessage.length > 12 ? '...' : '');
     }
   }
 
