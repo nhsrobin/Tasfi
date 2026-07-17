@@ -412,7 +412,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       >
         {/* Swipe Reply Indicator (Left side) */}
         <motion.div 
-          style={{ opacity: rreplyIconOpacityeplyIconOpacity, scale: replyIconScale, x: replyIconX }}
+          style={{ opacity: replyIconOpacity, scale: replyIconScale, x: replyIconX }}
           className="absolute left-4 top-1/2 -translate-y-1/2 p-2 text-romantic-deep pointer-events-none z-0"
         >
           <Reply className="w-6 h-6" />
