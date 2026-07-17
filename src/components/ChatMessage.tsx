@@ -406,13 +406,13 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       <div 
         id={`msg-${id}`}
         className={cn(
-          "flex w-full mb-2.5 group relative transition-colors duration-500 rounded-2xl",
+          "flex w-full mb-1 group relative transition-colors duration-500 rounded-2xl",
           isUser ? "justify-end" : "justify-start"
         )}
       >
         {/* Swipe Reply Indicator (Left side) */}
         <motion.div 
-          style={{ opacity: replyIconOpacity, scale: replyIconScale, x: replyIconX }}
+          style={{ opacity: rreplyIconOpacityeplyIconOpacity, scale: replyIconScale, x: replyIconX }}
           className="absolute left-4 top-1/2 -translate-y-1/2 p-2 text-romantic-deep pointer-events-none z-0"
         >
           <Reply className="w-6 h-6" />
