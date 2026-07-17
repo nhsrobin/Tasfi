@@ -135,7 +135,7 @@ const CodeBlock: React.FC<{ language: string; value: string }> = ({ language, va
         </button>
       </div>
       <div className="p-4 w-full overflow-hidden">
-        <pre className="font-mono text-[11px] sm:text-xs md:text-sm leading-relaxed text-neutral-200 whitespace-pre-wrap break-words overflow-wrap-anywhere scrollbar-none">
+        <pre className="font-mono text-[11px] sm:text-xs md:text-sm leading-normal text-neutral-200 whitespace-pre-wrap break-words overflow-wrap-anywhere scrollbar-none">
           <code dangerouslySetInnerHTML={{ __html: highlightCode(value) }} />
         </pre>
       </div>
