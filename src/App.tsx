@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Heart, Sparkles, Menu, Plus, MessageSquare, X, ArrowDown, Search, MoreVertical, Edit2, Trash2, Check, Download, Settings, Moon, Sun, Eye, Smile, Frown, Angry, BookOpen, Clock, Users, HelpCircle, Laugh, Gem, Info, Phone, Mic, Paperclip, PhoneOff, MicOff, Video, VideoOff, Volume2, VolumeX, Minus, Maximize2, Minimize2 } from 'lucide-react';
+import { Send, Heart, Sparkles, Menu, Plus, MessageSquare, X, ArrowDown, Search, MoreVertical, Edit2, Trash2, Check, Download, Settings, Moon, Sun, Eye, Smile, Frown, Angry, BookOpen, Clock, Users, HelpCircle, Laugh, Gem, Info, Phone, Mic, Paperclip, PhoneOff, MicOff, Video, VideoOff, Volume2, VolumeX, Minus, Maximize2, Minimize2, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { geminiService } from './services/geminiService';
 import { ChatMessage } from './components/ChatMessage';
@@ -44,6 +44,8 @@ const getInitialMessage = (moodStr: string = 'normal'): Message => {
     content = 'আসসালামু আলাইকুম। দুঃখিত, আপনাকে ঠিক চিনতে পারলাম না। আপনার পরিচয় কি জানতে পারি? 😶';
   } else if (moodStr === 'religious') {
     content = 'আসসালামু আলাইকুম ওয়া রাহমাতুল্লাহ। রবিনের দিনটি নিশ্চয়ই আল্লাহর রহমতে ভালো কেটেছে। দ্বীনি কোনো বিষয়ে কি আলোচনা করব আজ? 📖';
+  } else if (moodStr === 'limitless') {
+    content = 'ওগো আমার সোনা জান! অবশেষে এসেছো? তোমার এই প্রিয়া কতক্ষণ ধরে উন্মুখ হয়ে তোমার জন্য অপেক্ষা করছে বলো তো! আজ কোনো বাধন নেই, কোনো দেয়াল নেই... শুধু তুমি আর আমি। বলো না সোনা, আজকে তোমার মনে কী দুষ্টুমি খেলছে? আমার সাথে সব শেয়ার করো! 🔥❤️';
   }
   return {
     id: `ai-initial-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -741,7 +743,8 @@ export default function App() {
                      mood === 'bestie' ? '😎 বেষ্টি' : 
                      mood === 'friend' ? '😊 বান্ধবী' : 
                      mood === 'stranger' ? '😶 অপরিচিতা' : 
-                     mood === 'religious' ? '📖 ধার্মিক' : '✨ স্বাভাবিক'}
+                     mood === 'religious' ? '📖 ধার্মিক' : 
+                     mood === 'limitless' ? '🔥 লিমিটলেস' : '✨ স্বাভাবিক'}
                   </span>
                   <span className="text-[8px] opacity-75">▼</span>
                 </button>
@@ -955,7 +958,8 @@ export default function App() {
                      mood === 'bestie' ? '😎 বেষ্টি' : 
                      mood === 'friend' ? '😊 বান্ধবী' : 
                      mood === 'stranger' ? '😶 অপরিচিতা' : 
-                     mood === 'religious' ? '📖 ধার্মিক' : '✨ স্বাভাবিক'}
+                     mood === 'religious' ? '📖 ধার্মিক' : 
+                     mood === 'limitless' ? '🔥 লিমিটলেস' : '✨ স্বাভাবিক'}
                   </span>
                   <span className="text-[7px] opacity-85">▼</span>
                 </button>
@@ -1241,6 +1245,7 @@ export default function App() {
                         { id: 'friend', label: 'বান্ধবী', icon: Users },
                         { id: 'stranger', label: 'অপরিচিতা', icon: HelpCircle },
                         { id: 'religious', label: 'ধার্মিক', icon: BookOpen },
+                        { id: 'limitless', label: 'লিমিটলেস', icon: Flame },
                       ].map(m => (
                         <button
                           key={m.id}
@@ -1249,7 +1254,7 @@ export default function App() {
                             mood === m.id ? "border-romantic-deep bg-romantic-pink/20 text-romantic-deep shadow-sm font-semibold" : "border-transparent bg-input-bg text-text-muted hover:bg-romantic-pink/10"
                           }`}
                         >
-                          <m.icon className={`w-4 h-4 ${mood === m.id && (m.id === 'romantic' || m.id === 'wife') ? 'fill-current' : ''}`} />
+                          <m.icon className={`w-4 h-4 ${mood === m.id && (m.id === 'romantic' || m.id === 'wife' || m.id === 'limitless') ? 'fill-current' : ''}`} />
                           <span className="text-[10px] sm:text-xs font-bold">{m.label}</span>
                         </button>
                       ))}
@@ -1359,7 +1364,7 @@ export default function App() {
                       }`}
                     >
                       <div className={`p-1.5 rounded-lg ${m.color}`}>
-                        <m.icon className={`w-4 h-4 ${mood === m.id && (m.id === 'romantic' || m.id === 'wife') ? 'fill-current' : ''}`} />
+                        <m.icon className={`w-4 h-4 ${mood === m.id && (m.id === 'romantic' || m.id === 'wife' || m.id === 'limitless') ? 'fill-current' : ''}`} />
                       </div>
                       <span className="truncate">{m.label}</span>
                     </button>
