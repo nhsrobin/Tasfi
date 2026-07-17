@@ -460,7 +460,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           <div
             onClick={handleToggleStatusText}
             className={cn(
-              "relative px-2 py-1.5 rounded-2xl shadow-sm transition-all duration-200 select-text cursor-pointer",
+              "relative px-2.5 py-1 rounded-2xl shadow-sm transition-all duration-200 select-text cursor-pointer",
               isUser 
                 ? "bg-romantic-deep text-white rounded-tr-none shadow-romantic-deep/10" 
                 : "bg-card-bg text-text-main rounded-tl-none border border-border-custom shadow-black/5",
