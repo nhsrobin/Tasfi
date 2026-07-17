@@ -406,7 +406,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       <div 
         id={`msg-${id}`}
         className={cn(
-          "flex w-full mb-5 group relative transition-colors duration-500 rounded-2xl",
+          "flex w-full mb-2.5 group relative transition-colors duration-500 rounded-2xl",
           isUser ? "justify-end" : "justify-start"
         )}
       >
@@ -460,7 +460,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           <div
             onClick={handleToggleStatusText}
             className={cn(
-              "relative px-5 py-3.5 rounded-2xl shadow-sm transition-all duration-200 select-text cursor-pointer",
+              "relative px-4 py-2.5 rounded-2xl shadow-sm transition-all duration-200 select-text cursor-pointer",
               isUser 
                 ? "bg-romantic-deep text-white rounded-tr-none shadow-romantic-deep/10" 
                 : "bg-card-bg text-text-main rounded-tl-none border border-border-custom shadow-black/5",

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Heart, Sparkles, Menu, Plus, MessageSquare, X, ArrowDown, Search, MoreVertical, Edit2, Trash2, Check, Download, Settings, Moon, Sun, Eye, Smile, Frown, Angry, BookOpen, Clock, Users, HelpCircle, Laugh, Gem, Info, Phone, Mic, Paperclip, PhoneOff, MicOff, Video, VideoOff, Volume2, VolumeX, Minus, Maximize2, Minimize2, Flame } from 'lucide-react';
+import { Send, Heart, Sparkles, Menu, Plus, MessageSquare, X, ArrowDown, Search, MoreVertical, Edit2, Trash2, Check, Download, Settings, Moon, Sun, Eye, Smile, Frown, Angry, BookOpen, Clock, Users, HelpCircle, Laugh, Gem, Info, Phone, Mic, Paperclip, PhoneOff, MicOff, Video, VideoOff, Volume2, VolumeX, Minus, Maximize2, Minimize2, Flame, Database, Cloud, Copy, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { geminiService } from './services/geminiService';
+import { supabaseService } from './services/supabaseService';
 import { ChatMessage } from './components/ChatMessage';
 import { ThemeBackground } from './components/ThemeBackground';
 import { ExportModal } from './components/ExportModal';
@@ -168,6 +169,41 @@ export default function App() {
   const [isListening, setIsListening] = useState(false);
   const [showTextareaScrollbar, setShowTextareaScrollbar] = useState(false);
   
+  const [isDbLoading, setIsDbLoading] = useState(false);
+  const [supabaseActive, setSupabaseActive] = useState(() => supabaseService.isActive());
+  const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  // Load chats from Supabase on mount if active
+  useEffect(() => {
+    if (supabaseService.isActive()) {
+      setIsDbLoading(true);
+      supabaseService.loadChats()
+        .then(dbChats => {
+          if (dbChats && dbChats.length > 0) {
+            setChats(dbChats);
+            const savedActiveId = localStorage.getItem('tasfi_activeChatId') || dbChats[0].id;
+            if (dbChats.some(c => c.id === savedActiveId)) {
+              setActiveChatId(savedActiveId);
+            } else {
+              setActiveChatId(dbChats[0].id);
+            }
+          }
+          setHasLoadedFromDb(true);
+        })
+        .catch(err => {
+          console.error("Supabase load error on mount:", err);
+          setHasLoadedFromDb(true); // fall back to local storage
+        })
+        .finally(() => {
+          setIsDbLoading(false);
+        });
+    } else {
+      setHasLoadedFromDb(true);
+    }
+  }, []);
+
   const scrollbarTimeoutRef = useRef<any>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -308,8 +344,25 @@ export default function App() {
   const activeChat = chats.find(c => c.id === activeChatId) || chats[0];
 
   useEffect(() => {
+    localStorage.setItem('tasfi_activeChatId', activeChatId);
+  }, [activeChatId]);
+
+  useEffect(() => {
     localStorage.setItem('tasfi_chats', JSON.stringify(chats));
-  }, [chats]);
+
+    if (supabaseService.isActive() && hasLoadedFromDb) {
+      const handler = setTimeout(() => {
+        const activeChatToSync = chats.find(c => c.id === activeChatId);
+        if (activeChatToSync) {
+          supabaseService.saveChat(activeChatToSync).catch(err => {
+            console.error("Failed to sync chat to Supabase:", err);
+          });
+        }
+      }, 1000); // 1 sec debounce
+
+      return () => clearTimeout(handler);
+    }
+  }, [chats, activeChatId, hasLoadedFromDb]);
 
   useEffect(() => {
     localStorage.setItem('tasfi_mood', mood);
@@ -460,6 +513,12 @@ export default function App() {
   const deleteChat = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setMenuOpenChatId(null);
+    
+    if (supabaseService.isActive()) {
+      supabaseService.deleteChat(id).catch(err => {
+        console.error("Failed to delete chat from Supabase:", err);
+      });
+    }
     
     const moodChats = chats.filter(c => (c.mood || 'normal') === mood);
     if (moodChats.length === 1 && moodChats[0].id === id) {
@@ -1003,24 +1062,31 @@ export default function App() {
           className="flex-1 overflow-y-auto px-5 py-6 md:px-10 md:py-10 space-y-4 relative scroll-smooth z-10"
         >
           <div className="flex flex-col min-h-full">
-            {activeChat.messages.map((msg) => (
-              <ChatMessage 
-                key={msg.id} 
-                id={msg.id}
-                role={msg.role} 
-                content={msg.content} 
-                timestamp={msg.timestamp} 
-                reactions={msg.reactions}
-                replyTo={msg.replyTo}
-                subMode={mood}
-                status={msg.status}
-                profilePic={profilePic}
-                onReact={handleReact}
-                onReply={handleReply}
-                onDelete={handleDeleteMessage}
-                onEdit={handleEditMessage}
-              />
-            ))}
+            {(() => {
+              const lastUserMessageIndex = [...activeChat.messages].reverse().findIndex(m => m.role === 'user');
+              const lastUserMessageId = lastUserMessageIndex !== -1 
+                ? activeChat.messages[activeChat.messages.length - 1 - lastUserMessageIndex].id 
+                : null;
+              
+              return activeChat.messages.map((msg) => (
+                <ChatMessage 
+                  key={msg.id} 
+                  id={msg.id}
+                  role={msg.role} 
+                  content={msg.content} 
+                  timestamp={msg.timestamp} 
+                  reactions={msg.reactions}
+                  replyTo={msg.replyTo}
+                  subMode={mood}
+                  status={msg.id === lastUserMessageId ? msg.status : undefined}
+                  profilePic={profilePic}
+                  onReact={handleReact}
+                  onReply={handleReply}
+                  onDelete={handleDeleteMessage}
+                  onEdit={handleEditMessage}
+                />
+              ));
+            })()}
             {isLoading && (
               <motion.div 
                 key="ai-loading-indicator"
@@ -1284,6 +1350,97 @@ export default function App() {
                         </button>
                       ))}
                     </div>
+                  </section>
+
+                  {/* Supabase Integration */}
+                  <section className="bg-input-bg border border-border-custom rounded-2xl p-4.5 space-y-4">
+                    <div className="flex items-center gap-2 px-1">
+                      <Database className="w-5 h-5 text-romantic-deep" />
+                      <h4 className="text-xs font-black text-text-main uppercase tracking-wider">সুপাবেস ডাটাবেজ ইন্টিগ্রেশন</h4>
+                    </div>
+
+                    {supabaseActive ? (
+                      <div className="space-y-3.5">
+                        <div className="flex items-center gap-2 bg-green-500/10 text-green-600 dark:text-green-400 p-3 rounded-xl text-xs font-semibold border border-green-500/20">
+                          <CheckCircle className="w-4 h-4 shrink-0 animate-bounce" />
+                          <span>সংযুক্ত (সুপাবেস ক্লাউড ডাটাবেজে আপনার সকল চ্যাট নিরাপদ আছে)</span>
+                        </div>
+                        <div className="text-[11px] text-text-muted leading-relaxed">
+                          প্রজেক্ট ইউআরএল: <code className="bg-card-bg px-1.5 py-0.5 rounded font-mono text-romantic-deep">{import.meta.env.VITE_SUPABASE_URL?.replace(/^(https:\/\/)[^\.]+(\..*)$/, '$1*****$2')}</code>
+                        </div>
+                        
+                        <div className="flex gap-2.5">
+                          <button
+                            onClick={async () => {
+                              setSyncStatus('syncing');
+                              try {
+                                const result = await supabaseService.syncAllChats(chats);
+                                setSyncStatus('success');
+                                setTimeout(() => setSyncStatus('idle'), 3000);
+                                // reload chats after sync
+                                const dbChats = await supabaseService.loadChats();
+                                if (dbChats && dbChats.length > 0) {
+                                  setChats(dbChats);
+                                }
+                              } catch (err) {
+                                console.error(err);
+                                setSyncStatus('error');
+                                setTimeout(() => setSyncStatus('idle'), 3000);
+                              }
+                            }}
+                            disabled={syncStatus === 'syncing'}
+                            className="flex-1 py-2 px-3 bg-romantic-deep text-white hover:bg-romantic-hover rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Cloud className={`w-3.5 h-3.5 ${syncStatus === 'syncing' ? 'animate-ping' : ''}`} />
+                            {syncStatus === 'syncing' ? 'সিঙ্ক হচ্ছে...' : syncStatus === 'success' ? 'সিঙ্ক সম্পন্ন!' : 'সব আলাপ ক্লাউডে আপলোড করুন'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 p-3 rounded-xl text-xs font-semibold border border-amber-500/20">
+                          <Cloud className="w-4 h-4 shrink-0" />
+                          <span>লোকাল মোড (চ্যাটগুলো ব্রাউজারে সেভ হচ্ছে)</span>
+                        </div>
+                        <p className="text-[11px] text-text-muted leading-relaxed px-1">
+                          আপনার ডাটাবেজে চ্যাট ব্যাকআপ করতে চাইলে Supabase সংযোগ করুন।
+                        </p>
+                        
+                        <div className="bg-card-bg border border-border-custom rounded-xl p-3 space-y-2.5">
+                          <p className="text-[11px] font-bold text-romantic-deep">সংযোগ করার ধাপসমূহ:</p>
+                          <ol className="text-[11px] text-text-muted space-y-1.5 list-decimal list-inside leading-relaxed">
+                            <li><code>.env.example</code> ফাইলটি দেখে আপনার <code>VITE_SUPABASE_URL</code> এবং <code>VITE_SUPABASE_ANON_KEY</code> সেটিংস-এ যুক্ত করুন।</li>
+                            <li>সুপাবেস SQL Editor-এ নিচের SQL কোডটি রান করে টেবিলগুলো তৈরি করুন:</li>
+                          </ol>
+
+                          <div className="relative mt-2">
+                            <pre className="text-[9px] bg-input-bg text-text-main p-2.5 rounded-lg overflow-x-auto font-mono max-h-32 border border-border-custom select-all leading-normal">
+                              {supabaseService.getSQLSetupSchema()}
+                            </pre>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(supabaseService.getSQLSetupSchema());
+                                setCopiedSql(true);
+                                setTimeout(() => setCopiedSql(false), 2000);
+                              }}
+                              className="absolute right-2 top-2 p-1.5 bg-card-bg hover:bg-romantic-pink/20 text-romantic-deep rounded-md transition-all border border-border-custom flex items-center gap-1 text-[9px] font-bold cursor-pointer"
+                            >
+                              {copiedSql ? (
+                                <>
+                                  <CheckCircle className="w-3 h-3 text-green-500" />
+                                  <span>কপি হয়েছে!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  <span>কপি করুন</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </section>
 
                   {/* Reset Settings */}
