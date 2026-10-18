@@ -29,7 +29,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, chat,
 
   const exportAsTxt = () => {
     const header = `${nickname} - তোমার প্রিয় সঙ্গিনী\n${'='.repeat(30)}\n\n`;
-    const footer = `\n\n${'='.repeat(30)}\n${nickname} AI দ্বারা তৈরি\n${new Date().toLocaleString('bn-BD', { dateStyle: 'full', timeStyle: 'short' })}`;
+    const footer = `\n\n${'='.repeat(30)}\n${nickname} ও রবিনের আলাপচারিতা\n${new Date().toLocaleString('bn-BD', { dateStyle: 'full', timeStyle: 'short' })}`;
     
     const content = header + chat.messages.map(m => {
       const role = m.role === 'user' ? 'তুমি' : nickname;
@@ -98,7 +98,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, chat,
           ${messagesHtml}
 
           <div class="export-footer">
-            <div class="footer-brand">${nickname} AI দ্বারা তৈরি</div>
+            <div class="footer-brand">${nickname} ও রবিনের আলাপচারিতা</div>
             <div>${new Date().toLocaleString('bn-BD', { dateStyle: 'full', timeStyle: 'short' })}</div>
           </div>
         </div>
@@ -198,7 +198,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, chat,
       // 3. Add Footer
       await addElementToPdf(`
         <div style="margin-top: 30px; text-align: center; border-top: 2px solid #fce7f3; padding-top: 20px; color: #9ca3af; font-size: 12px; width: 100%;">
-          <div style="font-weight: 700; color: #be185d; margin-bottom: 4px;">${nickname} AI দ্বারা তৈরি</div>
+          <div style="font-weight: 700; color: #be185d; margin-bottom: 4px;">${nickname} ও রবিনের আলাপচারিতা</div>
           <div>${new Date().toLocaleString('bn-BD', { dateStyle: 'full', timeStyle: 'short' })}</div>
         </div>
       `);

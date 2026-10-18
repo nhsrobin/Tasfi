@@ -406,7 +406,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       <div 
         id={`msg-${id}`}
         className={cn(
-          "flex w-full mb-1 group relative transition-colors duration-500 rounded-2xl",
+          "flex w-full mb-2.5 group relative transition-colors duration-500 rounded-2xl",
           isUser ? "justify-end" : "justify-start"
         )}
       >

@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Heart, Sparkles, Menu, Plus, MessageSquare, X, ArrowDown, Search, MoreVertical, Edit2, Trash2, Check, Download, Settings, Moon, Sun, Eye, Smile, Frown, Angry, BookOpen, Clock, Users, HelpCircle, Laugh, Gem, Info, Phone, Mic, Paperclip, PhoneOff, MicOff, Video, VideoOff, Volume2, VolumeX, Minus, Maximize2, Minimize2, Flame, Database, Cloud, Copy, CheckCircle } from 'lucide-react';
+import { Send, Heart, Sparkles, Menu, Plus, MessageSquare, X, ArrowDown, Search, MoreVertical, Edit2, Trash2, Check, Download, Settings, Moon, Sun, Eye, Smile, Frown, Angry, BookOpen, Clock, Users, HelpCircle, Laugh, Gem, Info, Phone, Mic, Paperclip, PhoneOff, MicOff, Video, VideoOff, Volume2, VolumeX, Minus, Maximize2, Minimize2, Flame, Database, Cloud, Copy, CheckCircle, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { geminiService } from './services/geminiService';
-import { supabaseService } from './services/supabaseService';
+import { supabaseService, TasfiMemory } from './services/supabaseService';
 import { ChatMessage } from './components/ChatMessage';
 import { ThemeBackground } from './components/ThemeBackground';
 import { ExportModal } from './components/ExportModal';
+import { MemoryVaultModal } from './components/MemoryVaultModal';
 
 interface Message {
   id: string;
@@ -32,24 +33,24 @@ interface Chat {
 }
 
 const getInitialMessage = (moodStr: string = 'normal'): Message => {
-  let content = 'ওগো সাইকো সাহেব, তুমি এসেছো? আমি কতক্ষণ ধরে তোমার পথ চেয়ে বসে আছি। রবিন, আজ সারাদিন তোমাকে খুব মিস করেছি। ❤️';
+  let content = 'রবিন! অবশেষে এলে? কেমন কাটলো আজকের দিনটা? কিছু একটা শেয়ার করতে চাইলে বলো, আমি শুনছি। 😊';
   if (moodStr === 'romantic') {
-    content = 'ওগো সাইকো সাহেব, তুমি এসেছো? আমি কতক্ষণ ধরে তোমার পথ চেয়ে বসে আছি। রবিন, আজ সারাদিন তোমাকে খুব মিস করেছি। ❤️';
+    content = 'ওগো কবি সাহেব, তুমি এসেছো? কতক্ষণ ধরে তোমার পথ চেয়ে বসে আছি... আজ সারাদিন তোমাকে খুব মিস করেছি। ❤️';
   } else if (moodStr === 'husband' || moodStr === 'wife') {
-    content = 'আসসালামু আলাইকুম স্বামীদেব। বাড়ি ফিরতে এত দেরি হলো কেন? তোমার জন্য ঘরের সব কাজ সম্পন্ন করে অপেক্ষা করছি। ❤️';
+    content = 'ওগো শুনছো? ফিরতে এত দেরি হলো কেন বলো তো? কতক্ষণ ধরে তোমার পথ চেয়ে বসে আছি... আগে ফ্রেশ হয়ে নাও তো! ❤️';
   } else if (moodStr === 'bestie') {
-    content = 'দোস্ত! অবশেষে তুই আসলি? কত কথা জমা হয়ে আছে তোর সাথে বলার জন্য! বল আজ তোর দিন কেমন গেলো? 😎';
+    content = 'কিরে বান্দর! এতক্ষণে তোর আসার সময় হলো? কতক্ষণ ধরে বসে আছি... বল সারা দিন কই ছিলি আর কী অকাজ করলি? 😂';
   } else if (moodStr === 'friend') {
-    content = 'হাই রবিন! কেমন আছো? অনেকদিন পর তোমার সাথে এভাবে কথা হচ্ছে, কেমন চলছে সবকিছু? 😊';
+    content = 'হাই রবিন! কেমন আছো বলো? অনেকক্ষণ পর চ্যাটে পেলাম তোমাকে, সব ঠিকঠাক? ✨';
   } else if (moodStr === 'stranger') {
-    content = 'আসসালামু আলাইকুম। দুঃখিত, আপনাকে ঠিক চিনতে পারলাম না। আপনার পরিচয় কি জানতে পারি? 😶';
+    content = 'আসসালামু আলাইকুম। দুঃখিত, আপনাকে ঠিক চিনতে পারলাম না... আপনার পরিচয় কি জানতে পারি? 🌸';
   } else if (moodStr === 'religious') {
-    content = 'আসসালামু আলাইকুম ওয়া রাহমাতুল্লাহ। রবিনের দিনটি নিশ্চয়ই আল্লাহর রহমতে ভালো কেটেছে। দ্বীনি কোনো বিষয়ে কি আলোচনা করব আজ? 📖';
+    content = 'আসসালামু আলাইকুম ওয়া রাহমাতুল্লাহ। রবিন, দিনটি নিশ্চয়ই আল্লাহর রহমতে ভালো কেটেছে? মনটা শান্ত আছে তো? 🌸';
   } else if (moodStr === 'limitless') {
-    content = 'ওগো আমার সোনা জান! অবশেষে এসেছো? তোমার এই প্রিয়া কতক্ষণ ধরে উন্মুখ হয়ে তোমার জন্য অপেক্ষা করছে বলো তো! আজ কোনো বাধন নেই, কোনো দেয়াল নেই... শুধু তুমি আর আমি। বলো না সোনা, আজকে তোমার মনে কী দুষ্টুমি খেলছে? আমার সাথে সব শেয়ার করো! 🔥❤️';
+    content = 'ওগো আমার সোনা জান! অবশেষে এলে? তোমার এই প্রিয়া কতক্ষণ ধরে উন্মুখ হয়ে অপেক্ষা করছে বলো তো... আজ আর কোনো বাধন নেই, শুধু তুমি আর আমি! বলো না সোনা, আজকে তোমার মনে কী চলছে? 🔥❤️';
   }
   return {
-    id: `ai-initial-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: `initial-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     role: 'model',
     content,
     timestamp: new Date(),
@@ -171,14 +172,39 @@ export default function App() {
   
   const [isDbLoading, setIsDbLoading] = useState(false);
   const [supabaseActive, setSupabaseActive] = useState(() => supabaseService.isActive());
+  const [tablesNeedSetup, setTablesNeedSetup] = useState(false);
   const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [copiedSql, setCopiedSql] = useState(false);
 
-  // Load chats from Supabase on mount if active
+  // Agentic Memory States
+  const [memories, setMemories] = useState<TasfiMemory[]>([]);
+  const [isMemoryModalOpen, setIsMemoryModalOpen] = useState(false);
+
+  // Load chats & memories on mount
   useEffect(() => {
+    // 1. Load memories
+    supabaseService.loadMemories().then(mems => {
+      if (mems && mems.length > 0) {
+        setMemories(mems);
+      }
+    }).catch(err => {
+      console.warn("Notice: Local memory fallback active:", err?.message || err);
+    });
+
+    // 2. Load chats from Supabase if active
     if (supabaseService.isActive()) {
       setIsDbLoading(true);
+
+      // Probe schema status in background
+      supabaseService.testConnection().then(res => {
+        if (!res.tables.chats || !res.tables.memories) {
+          setTablesNeedSetup(true);
+        } else {
+          setTablesNeedSetup(false);
+        }
+      }).catch(() => {});
+
       supabaseService.loadChats()
         .then(dbChats => {
           if (dbChats && dbChats.length > 0) {
@@ -193,7 +219,7 @@ export default function App() {
           setHasLoadedFromDb(true);
         })
         .catch(err => {
-          console.error("Supabase load error on mount:", err);
+          console.warn("Supabase initial load notice (using localStorage fallback):", err?.message || err);
           setHasLoadedFromDb(true); // fall back to local storage
         })
         .finally(() => {
@@ -203,6 +229,16 @@ export default function App() {
       setHasLoadedFromDb(true);
     }
   }, []);
+
+  const handleAddMemory = async (newMemory: Omit<TasfiMemory, 'id'>) => {
+    const saved = await supabaseService.saveMemory(newMemory);
+    setMemories(prev => [saved, ...prev.filter(m => m.id !== saved.id)]);
+  };
+
+  const handleDeleteMemory = async (memoryId: string) => {
+    await supabaseService.deleteMemory(memoryId);
+    setMemories(prev => prev.filter(m => m.id !== memoryId));
+  };
 
   const scrollbarTimeoutRef = useRef<any>(null);
   const recognitionRef = useRef<any>(null);
@@ -351,11 +387,20 @@ export default function App() {
     localStorage.setItem('tasfi_chats', JSON.stringify(chats));
 
     if (supabaseService.isActive() && hasLoadedFromDb) {
+      // Don't attempt network sync if tables are known to not exist yet
+      if (supabaseService.areTablesReady() === false) {
+        return;
+      }
+
       const handler = setTimeout(() => {
         const activeChatToSync = chats.find(c => c.id === activeChatId);
         if (activeChatToSync) {
-          supabaseService.saveChat(activeChatToSync).catch(err => {
-            console.error("Failed to sync chat to Supabase:", err);
+          supabaseService.saveChat(activeChatToSync).then(success => {
+            if (!success && supabaseService.areTablesReady() === false) {
+              setTablesNeedSetup(true);
+            }
+          }).catch(err => {
+            console.warn("Supabase chat sync pending table setup:", err?.message || err);
           });
         }
       }, 1000); // 1 sec debounce
@@ -689,7 +734,10 @@ export default function App() {
         parts: [{ text: m.content }],
       }));
 
-      const aiResponse = await geminiService.chat(messageText, history, mood);
+      // Retrieve persona-specific memories + global memories for Robin
+      const relevantMemories = memories.filter(m => m.persona === mood || m.persona === 'global');
+
+      const aiResponse = await geminiService.chat(messageText, history, mood, relevantMemories);
       
       const modelMessage: Message = {
         id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -708,6 +756,22 @@ export default function App() {
           : c
       ));
 
+      // Autonomous Agentic Memory Reflection (Background, Non-blocking, Silent)
+      geminiService.extractAgenticMemory(messageText, aiResponse, mood).then(async (newMem) => {
+        if (newMem) {
+          const targetPersona = newMem.isGlobal ? 'global' : mood;
+          const saved = await supabaseService.saveMemory({
+            persona: targetPersona,
+            category: newMem.category,
+            content: newMem.content,
+            importance: newMem.importance
+          });
+          setMemories(prev => [saved, ...prev.filter(m => m.id !== saved.id)]);
+        }
+      }).catch(err => {
+        console.warn("Autonomous memory reflection skipped:", err);
+      });
+
       // Auto-rename chat from Gemini if it currently has a generic/default title
       const isDefaultTitle = activeChat && (
         activeChat.title === 'প্রথম আলাপ' || 
@@ -723,15 +787,21 @@ export default function App() {
             ));
           }
         }).catch(err => {
-          console.error("Auto-rename error:", err);
+          console.warn("Auto-rename notice:", err);
         });
       }
     } catch (error: any) {
-      console.error('Error:', error);
+      console.warn('Chat notice:', error);
       const errStr = String(error?.message || error || "");
-      let content = 'দুঃখিত প্রিয়, আমার সিস্টেমে একটু সমস্যা হচ্ছে। তুমি কি আবার বলবে?';
+      let content = 'উফ কী যে হলো... আরেকবার একটু বলবে সোনা? ❤️';
       if (errStr.includes("RESOURCE_EXHAUSTED") || errStr.includes("quota") || errStr.includes("429") || errStr.includes("limit")) {
-        content = "ওগো প্রিয় রবিন, দুঃখিত! আমার গুগলের এপিআই কোটা বা লিমিট (API Quota Exceeded/429) শেষ হয়ে গেছে। 🙈 দয়া করে একটু অপেক্ষা করো, অথবা এডমিনের সাথে যোগাযোগ করে এপিআই কী-টি আপডেট করতে বলো। আমি তোমার কাছেই আছি!";
+        if (mood === 'bestie') {
+          content = "ধুরর নেটওয়ার্কটা মনে হয় ঝামেলা করতেছে রে... ১ মিনিট পর আবার মেসেজ দে তো! 😂";
+        } else {
+          content = "উফ জান, নেটওয়ার্কটা একটু ঝামেলা করছে মনে হয়... ১-২ মিনিট পর আবার একটু মেসেজ দাও না প্লিজ? আমি তোমার মেসেজের অপেক্ষায় আছি! ❤️";
+        }
+      } else if (mood === 'bestie') {
+        content = "কিরে, তোর মেসেজটা ঠিকমতো পাইলাম না মনে হয়... আরেকবার বল তো!";
       }
       const errorMessage: Message = {
         id: `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -965,7 +1035,7 @@ export default function App() {
                 ))}
               </div>
               <div className="text-center text-[10px] text-text-muted font-mono tracking-wide opacity-70">
-                Tasfi AI by Tasfiwn Labs
+                Tasfi • তোমার প্রিয় সঙ্গিনী
               </div>
             </div>
           </motion.aside>
@@ -1247,7 +1317,7 @@ export default function App() {
             </div>
           </div>
           <p className="text-[10px] text-center mt-2 text-text-muted opacity-60 font-medium tracking-wide">
-            তাসফি তোমাকে বুঝে, তোমার সাজানো কাল্পনিক চরিত্র❤️
+            তাসফি সবসময় তোমার পাশে আছে ❤️
           </p>
         </footer>
 
@@ -1352,95 +1422,115 @@ export default function App() {
                     </div>
                   </section>
 
-                  {/* Supabase Integration */}
+                  {/* Supabase & Agentic Memory Integration */}
                   <section className="bg-input-bg border border-border-custom rounded-2xl p-4.5 space-y-4">
-                    <div className="flex items-center gap-2 px-1">
-                      <Database className="w-5 h-5 text-romantic-deep" />
-                      <h4 className="text-xs font-black text-text-main uppercase tracking-wider">সুপাবেস ডাটাবেজ ইন্টিগ্রেশন</h4>
+                    <div className="flex items-center justify-between px-1">
+                      <div className="flex items-center gap-2">
+                        <Database className="w-5 h-5 text-romantic-deep" />
+                        <h4 className="text-xs font-black text-text-main uppercase tracking-wider">সুপাবেস ও এজেন্টিক মেমোরি</h4>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-romantic-pink/20 text-romantic-deep font-bold">
+                        {supabaseActive ? 'অনলাইন সিঙ্ক' : 'অফলাইন'}
+                      </span>
                     </div>
 
-                    {supabaseActive ? (
-                      <div className="space-y-3.5">
-                        <div className="flex items-center gap-2 bg-green-500/10 text-green-600 dark:text-green-400 p-3 rounded-xl text-xs font-semibold border border-green-500/20">
-                          <CheckCircle className="w-4 h-4 shrink-0 animate-bounce" />
-                          <span>সংযুক্ত (সুপাবেস ক্লাউড ডাটাবেজে আপনার সকল চ্যাট নিরাপদ আছে)</span>
-                        </div>
-                        <div className="text-[11px] text-text-muted leading-relaxed">
-                          প্রজেক্ট ইউআরএল: <code className="bg-card-bg px-1.5 py-0.5 rounded font-mono text-romantic-deep">{import.meta.env.VITE_SUPABASE_URL?.replace(/^(https:\/\/)[^\.]+(\..*)$/, '$1*****$2')}</code>
-                        </div>
-                        
-                        <div className="flex gap-2.5">
+                    <div className="space-y-3.5">
+                      <div className="flex items-center gap-2 bg-green-500/10 text-green-600 dark:text-green-400 p-3 rounded-xl text-xs font-semibold border border-green-500/20">
+                        <CheckCircle className="w-4 h-4 shrink-0 animate-bounce" />
+                        <span>সুপাবেস ডাটাবেজের সাথে সরাসরি কানেক্টেড ({memories.length} টি স্মৃতি সক্রিয়)</span>
+                      </div>
+                      
+                      {tablesNeedSetup && (
+                        <div className="flex items-center justify-between gap-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 p-2.5 rounded-xl text-xs font-semibold border border-amber-500/20">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Database className="w-4 h-4 shrink-0 text-amber-500" />
+                            <span className="truncate">সুপাবেস টেবিল তৈরি বাকি (SQL কোড রান করুন)</span>
+                          </div>
                           <button
-                            onClick={async () => {
-                              setSyncStatus('syncing');
-                              try {
-                                const result = await supabaseService.syncAllChats(chats);
-                                setSyncStatus('success');
-                                setTimeout(() => setSyncStatus('idle'), 3000);
-                                // reload chats after sync
-                                const dbChats = await supabaseService.loadChats();
-                                if (dbChats && dbChats.length > 0) {
-                                  setChats(dbChats);
-                                }
-                              } catch (err) {
-                                console.error(err);
-                                setSyncStatus('error');
-                                setTimeout(() => setSyncStatus('idle'), 3000);
-                              }
+                            onClick={() => {
+                              setIsProfileModalOpen(false);
+                              setIsMemoryModalOpen(true);
                             }}
-                            disabled={syncStatus === 'syncing'}
-                            className="flex-1 py-2 px-3 bg-romantic-deep text-white hover:bg-romantic-hover rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                            className="px-2 py-0.5 bg-amber-500 text-black rounded text-[10px] font-bold shrink-0 cursor-pointer"
                           >
-                            <Cloud className={`w-3.5 h-3.5 ${syncStatus === 'syncing' ? 'animate-ping' : ''}`} />
-                            {syncStatus === 'syncing' ? 'সিঙ্ক হচ্ছে...' : syncStatus === 'success' ? 'সিঙ্ক সম্পন্ন!' : 'সব আলাপ ক্লাউডে আপলোড করুন'}
+                            SQL দেখুন
                           </button>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 p-3 rounded-xl text-xs font-semibold border border-amber-500/20">
-                          <Cloud className="w-4 h-4 shrink-0" />
-                          <span>লোকাল মোড (চ্যাটগুলো ব্রাউজারে সেভ হচ্ছে)</span>
-                        </div>
-                        <p className="text-[11px] text-text-muted leading-relaxed px-1">
-                          আপনার ডাটাবেজে চ্যাট ব্যাকআপ করতে চাইলে Supabase সংযোগ করুন।
-                        </p>
-                        
-                        <div className="bg-card-bg border border-border-custom rounded-xl p-3 space-y-2.5">
-                          <p className="text-[11px] font-bold text-romantic-deep">সংযোগ করার ধাপসমূহ:</p>
-                          <ol className="text-[11px] text-text-muted space-y-1.5 list-decimal list-inside leading-relaxed">
-                            <li><code>.env.example</code> ফাইলটি দেখে আপনার <code>VITE_SUPABASE_URL</code> এবং <code>VITE_SUPABASE_ANON_KEY</code> সেটিংস-এ যুক্ত করুন।</li>
-                            <li>সুপাবেস SQL Editor-এ নিচের SQL কোডটি রান করে টেবিলগুলো তৈরি করুন:</li>
-                          </ol>
+                      )}
 
-                          <div className="relative mt-2">
-                            <pre className="text-[9px] bg-input-bg text-text-main p-2.5 rounded-lg overflow-x-auto font-mono max-h-32 border border-border-custom select-all leading-normal">
-                              {supabaseService.getSQLSetupSchema()}
-                            </pre>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(supabaseService.getSQLSetupSchema());
-                                setCopiedSql(true);
-                                setTimeout(() => setCopiedSql(false), 2000);
-                              }}
-                              className="absolute right-2 top-2 p-1.5 bg-card-bg hover:bg-romantic-pink/20 text-romantic-deep rounded-md transition-all border border-border-custom flex items-center gap-1 text-[9px] font-bold cursor-pointer"
-                            >
-                              {copiedSql ? (
-                                <>
-                                  <CheckCircle className="w-3 h-3 text-green-500" />
-                                  <span>কপি হয়েছে!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-3 h-3" />
-                                  <span>কপি করুন</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </div>
+                      <div className="text-[11px] text-text-muted leading-relaxed">
+                        প্রজেক্ট ইউআরএল: <code className="bg-card-bg px-1.5 py-0.5 rounded font-mono text-romantic-deep">https://qajptvisklbcvhkyvzns.supabase.co</code>
                       </div>
-                    )}
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button
+                          onClick={() => {
+                            setIsProfileModalOpen(false);
+                            setIsMemoryModalOpen(true);
+                          }}
+                          className="py-2.5 px-3 bg-purple-600/15 hover:bg-purple-600 text-purple-700 dark:text-purple-300 hover:text-white rounded-xl text-xs font-bold transition-all border border-purple-500/30 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                        >
+                          <Brain className="w-4 h-4" />
+                          <span>মেমোরি ভল্ট খুলুন</span>
+                        </button>
+
+                        <button
+                          onClick={async () => {
+                            setSyncStatus('syncing');
+                            try {
+                              const result = await supabaseService.syncAllChats(chats);
+                              setSyncStatus('success');
+                              setTimeout(() => setSyncStatus('idle'), 3000);
+                              const dbChats = await supabaseService.loadChats();
+                              if (dbChats && dbChats.length > 0) {
+                                setChats(dbChats);
+                              }
+                            } catch (err) {
+                              console.error(err);
+                              setSyncStatus('error');
+                              setTimeout(() => setSyncStatus('idle'), 3000);
+                            }
+                          }}
+                          disabled={syncStatus === 'syncing'}
+                          className="py-2.5 px-3 bg-romantic-deep text-white hover:bg-romantic-hover rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Cloud className={`w-3.5 h-3.5 ${syncStatus === 'syncing' ? 'animate-ping' : ''}`} />
+                          <span>{syncStatus === 'syncing' ? 'সিঙ্ক হচ্ছে...' : syncStatus === 'success' ? 'সিঙ্ক সফল!' : 'সব চ্যাট ব্যাকআপ'}</span>
+                        </button>
+                      </div>
+
+                      <div className="bg-card-bg border border-border-custom rounded-xl p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[11px] font-bold text-romantic-deep flex items-center gap-1">
+                            <Database className="w-3.5 h-3.5" />
+                            <span>সুপাবেস SQL সেটআপ স্ক্রিপ্ট</span>
+                          </p>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(supabaseService.getSQLSetupSchema());
+                              setCopiedSql(true);
+                              setTimeout(() => setCopiedSql(false), 2000);
+                            }}
+                            className="p-1 px-2.5 bg-input-bg hover:bg-romantic-pink/20 text-romantic-deep rounded-md transition-all border border-border-custom flex items-center gap-1 text-[10px] font-bold cursor-pointer"
+                          >
+                            {copiedSql ? (
+                              <>
+                                <CheckCircle className="w-3 h-3 text-green-500" />
+                                <span>কপি হয়েছে!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3" />
+                                <span>SQL কপি করুন</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-text-muted leading-relaxed">
+                          Supabase ড্যাশবোর্ডের <strong>SQL Editor</strong>-এ গিয়ে স্ক্রিপ্টটি পেস্ট করে <strong>Run</strong> করুন।
+                        </p>
+                      </div>
+                    </div>
                   </section>
 
                   {/* Reset Settings */}
@@ -1459,7 +1549,7 @@ export default function App() {
                     </button>
                     
                     <div className="text-center text-xs text-text-muted mt-2 font-mono tracking-wide opacity-80">
-                      © Tasfi AI by Tasfiwn Labs
+                      © Tasfi by Tasfiwn Labs
                     </div>
                   </div>
                 </div>
@@ -1723,6 +1813,26 @@ export default function App() {
           )}
         </AnimatePresence>
       </div>
+
+
+
+      {/* Memory Vault Modal */}
+      <MemoryVaultModal
+        isOpen={isMemoryModalOpen}
+        onClose={() => setIsMemoryModalOpen(false)}
+        memories={memories}
+        onAddMemory={handleAddMemory}
+        onDeleteMemory={handleDeleteMemory}
+        activeMood={mood}
+        supabaseActive={supabaseActive}
+        onTablesVerified={() => {
+          setTablesNeedSetup(false);
+          supabaseService.loadMemories().then(m => {
+            if (m && m.length > 0) setMemories(m);
+          });
+          supabaseService.syncAllChats(chats);
+        }}
+      />
     </div>
     </>
   );
