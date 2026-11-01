@@ -190,11 +190,23 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     }, 4500);
   };
   
-  // Swipe to Reply State
+  // Swipe to Reply State: Left for user message, Right for model message
   const dragX = useMotionValue(0);
-  const replyIconOpacity = useTransform(dragX, [0, 60], [0, 1]);
-  const replyIconScale = useTransform(dragX, [0, 60], [0.5, 1.2]);
-  const replyIconX = useTransform(dragX, [0, 60], [-20, 0]);
+  const replyIconOpacity = useTransform(
+    dragX, 
+    isUser ? [0, -50] : [0, 50], 
+    [0, 1]
+  );
+  const replyIconScale = useTransform(
+    dragX, 
+    isUser ? [0, -50] : [0, 50], 
+    [0.6, 1.15]
+  );
+  const replyIconX = useTransform(
+    dragX, 
+    isUser ? [0, -50] : [0, 50], 
+    isUser ? [15, 0] : [-15, 0]
+  );
 
   // TTS State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -212,18 +224,43 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     };
   }, []);
 
+  const fallbackBrowserSpeech = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(content);
+      utterance.lang = 'bn-BD';
+      utterance.rate = 1.05;
+      utterance.onend = () => setIsPlaying(false);
+      utterance.onerror = () => setIsPlaying(false);
+      window.speechSynthesis.speak(utterance);
+      setIsPlaying(true);
+    } else {
+      setIsPlaying(false);
+    }
+  };
+
   const handleToggleVoice = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isPlaying) {
-      audioRef.current?.pause();
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
       setIsPlaying(false);
       return;
     }
 
     if (audioRef.current) {
-      audioRef.current.play();
-      setIsPlaying(true);
-      return;
+      try {
+        await audioRef.current.play();
+        setIsPlaying(true);
+        return;
+      } catch {
+        fallbackBrowserSpeech();
+        return;
+      }
     }
 
     setIsBuffering(true);
@@ -233,11 +270,15 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
         audio.onended = () => setIsPlaying(false);
-        audio.play();
+        audio.onerror = () => fallbackBrowserSpeech();
+        await audio.play();
         setIsPlaying(true);
+      } else {
+        fallbackBrowserSpeech();
       }
     } catch (error) {
-      console.error("Voice playback error:", error);
+      console.warn("Voice server notice, falling back to speech synthesis:", error);
+      fallbackBrowserSpeech();
     } finally {
       setIsBuffering(false);
     }
@@ -286,7 +327,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   };
 
   const handleDragEnd = (_: any, info: any) => {
-    if (info.offset.x > 80) {
+    const triggered = isUser ? info.offset.x < -55 : info.offset.x > 55;
+    if (triggered) {
       onReply?.(id);
       if (window.navigator.vibrate) {
         window.navigator.vibrate(30);
@@ -406,32 +448,35 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       <div 
         id={`msg-${id}`}
         className={cn(
-          "flex w-full mb-2.5 group relative transition-colors duration-500 rounded-2xl",
+          "flex w-full mb-0.5 sm:mb-1 group relative transition-colors duration-200 rounded-2xl",
           isUser ? "justify-end" : "justify-start"
         )}
       >
-        {/* Swipe Reply Indicator (Left side) */}
+        {/* Swipe Reply Indicator: Right side for user message (swiping left), Left side for model message (swiping right) */}
         <motion.div 
           style={{ opacity: replyIconOpacity, scale: replyIconScale, x: replyIconX }}
-          className="absolute left-4 top-1/2 -translate-y-1/2 p-2 text-romantic-deep pointer-events-none z-0"
+          className={cn(
+            "absolute top-1/2 -translate-y-1/2 p-1 text-romantic-deep pointer-events-none z-0",
+            isUser ? "right-2" : "left-2"
+          )}
         >
-          <Reply className="w-6 h-6" />
+          <Reply className={cn("w-4 h-4", isUser && "scale-x-[-1]")} />
         </motion.div>
 
         <motion.div
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={{ left: 0, right: 0.5 }}
+          dragElastic={isUser ? { left: 0.45, right: 0 } : { left: 0, right: 0.45 }}
           onDragEnd={handleDragEnd}
           style={{ x: dragX }}
-          initial={{ opacity: 0, y: 30, scale: 0.95 }}
+          initial={{ opacity: 0, y: 10, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ 
             type: "spring", 
-            stiffness: 280, 
-            damping: 22, 
-            mass: 0.85,
-            opacity: { duration: 0.25 }
+            stiffness: 320, 
+            damping: 25, 
+            mass: 0.8,
+            opacity: { duration: 0.15 }
           }}
           onMouseDown={handleLongPressStart}
           onMouseUp={handleLongPressEnd}
@@ -440,7 +485,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleLongPressEnd}
           className={cn(
-            "flex flex-col max-w-[85%] md:max-w-[70%] cursor-grab active:cursor-grabbing z-10",
+            "flex flex-col max-w-[88%] md:max-w-[74%] cursor-grab active:cursor-grabbing z-10",
             isUser ? "items-end" : "items-start"
           )}
         >
@@ -449,18 +494,19 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             <button 
               onClick={() => scrollToOriginal(replyTo.id)}
               className={cn(
-                "text-[10px] mb-1 px-3 py-1 bg-black/5 rounded-t-lg border-l-2 border-romantic-deep max-w-full truncate opacity-70 text-left hover:bg-black/10 transition-colors",
-                isUser ? "mr-2" : "ml-2"
+                "text-[9.5px] mb-0.5 px-2 py-0.5 bg-black/5 rounded-t-lg border-l-2 border-romantic-deep max-w-full truncate opacity-75 text-left hover:bg-black/10 transition-colors",
+                isUser ? "mr-1" : "ml-1"
               )}
             >
               <span className="font-bold">{replyTo.role === 'user' ? 'তুমি' : 'তাসফি'}:</span> {replyTo.content}
             </button>
           )}
 
+          {/* Compact Bubble Container (Zero Fat Padding) */}
           <div
             onClick={handleToggleStatusText}
             className={cn(
-              "relative px-2.5 py-1 rounded-2xl shadow-sm transition-all duration-200 select-text cursor-pointer",
+              "relative px-2.5 py-1 rounded-2xl shadow-xs transition-all duration-150 select-text cursor-pointer",
               isUser 
                 ? "bg-romantic-deep text-white rounded-tr-none shadow-romantic-deep/10" 
                 : "bg-card-bg text-text-main rounded-tl-none border border-border-custom shadow-black/5",
@@ -468,27 +514,30 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             )}
           >
             {isEditing ? (
-              <div className="flex flex-col gap-2 min-w-[200px] w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="flex flex-col gap-1.5 min-w-[190px] w-full" onClick={(e) => e.stopPropagation()}>
                 <textarea
                   autoFocus
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
-                  className="w-full bg-transparent border-none outline-none text-sm resize-none focus:ring-0 p-0 text-white"
-                  rows={3}
+                  className="w-full bg-transparent border-none outline-none text-xs sm:text-[13px] resize-none focus:ring-0 p-0 text-white leading-tight"
+                  rows={2}
                 />
-                <div className="flex justify-end gap-2 border-t border-white/20 pt-2">
-                  <button onClick={() => setIsEditing(false)} className="p-1 px-2 hover:bg-white/10 rounded flex items-center gap-1 text-[10px]">
-                    <X className="w-3 h-3" /> বাতিল
+                <div className="flex justify-end gap-1.5 border-t border-white/20 pt-1.5">
+                  <button onClick={() => setIsEditing(false)} className="p-1 px-1.5 hover:bg-white/10 rounded flex items-center gap-1 text-[9.5px]">
+                    <X className="w-2.5 h-2.5" /> বাতিল
                   </button>
-                  <button onClick={handleSaveEdit} className="p-1 px-2 bg-white/20 hover:bg-white/30 rounded flex items-center gap-1 text-[10px] font-bold">
-                    <Check className="w-3 h-3" /> সেভ
+                  <button onClick={handleSaveEdit} className="p-1 px-1.5 bg-white/20 hover:bg-white/30 rounded flex items-center gap-1 text-[9.5px] font-bold">
+                    <Check className="w-2.5 h-2.5" /> সেভ
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="markdown-body text-sm md:text-base leading-normal break-words overflow-wrap-anywhere">
+              <div className="markdown-body text-[13px] sm:text-[13.5px] leading-tight break-words overflow-wrap-anywhere overflow-visible [&_p]:mb-1 [&_p:last-child]:mb-0">
                 <Markdown
                   components={{
+                    p({ children }) {
+                      return <p className="mb-1 last:mb-0 leading-tight block">{children}</p>;
+                    },
                     code({ className, children, ...props }) {
                       const match = /language-(\w+)/.exec(className || '');
                       const codeString = String(children).replace(/\n$/, '');
@@ -497,7 +546,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                       if (isInline) {
                         return (
                           <code 
-                            className="px-1.5 py-0.5 rounded-lg font-mono text-xs font-bold bg-romantic-pink/15 text-romantic-deep border border-romantic-pink/15" 
+                            className="px-1 py-0.5 rounded font-mono text-[11px] font-bold bg-romantic-pink/15 text-romantic-deep border border-romantic-pink/15" 
                             {...props}
                           >
                             {children}
@@ -515,30 +564,38 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               </div>
             )}
             
+            {/* Super Compact Info Bar: Tiny Time + Micro Voice Controller Model */}
             <div 
               className={cn(
-                "text-[10px] mt-1 opacity-60 flex items-center justify-between gap-4 select-none",
+                "text-[9.5px] mt-0.5 opacity-65 flex items-center justify-between gap-2 select-none",
                 isUser ? "text-white/80" : "text-text-muted"
               )}
             >
-              <div className="flex items-center gap-1.5 animate-fade-in">
+              <div className="flex items-center gap-1 animate-fade-in">
                 <span>{timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 {expiresAt && <Clock className="w-2.5 h-2.5" />}
               </div>
               
+              {/* Micro Voice Controller Model (Minimal Padding) */}
               <button 
+                type="button"
                 onClick={handleToggleVoice}
                 disabled={isBuffering}
+                title={isPlaying ? "ভয়েস থামান" : "ভয়েস শুনুন"}
                 className={cn(
-                  "p-1 rounded-full transition-all active:scale-90",
-                  isUser ? "hover:bg-white/20" : "hover:bg-romantic-pink/20",
+                  "p-0.5 rounded transition-all active:scale-90 flex items-center justify-center shrink-0",
+                  isUser ? "hover:bg-white/20 text-white/90" : "hover:bg-romantic-pink/30 text-text-muted hover:text-romantic-deep",
                   isPlaying && "text-romantic-deep"
                 )}
               >
                 {isBuffering ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <Loader2 className="w-2.5 h-2.5 animate-spin" />
                 ) : isPlaying ? (
-                  <VolumeX className="w-3 h-3" />
+                  <div className="flex items-center gap-0.5 h-2.5 px-0.5">
+                    <span className="w-0.5 h-2 bg-romantic-deep rounded-full animate-audio-bar"></span>
+                    <span className="w-0.5 h-2.5 bg-romantic-deep rounded-full animate-audio-bar [animation-delay:0.15s]"></span>
+                    <span className="w-0.5 h-1.5 bg-romantic-deep rounded-full animate-audio-bar [animation-delay:0.3s]"></span>
+                  </div>
                 ) : (
                   <Volume2 className="w-3 h-3" />
                 )}

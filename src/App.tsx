@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Heart, Sparkles, Menu, Plus, MessageSquare, X, ArrowDown, Search, MoreVertical, Edit2, Trash2, Check, Download, Settings, Moon, Sun, Eye, Smile, Frown, Angry, BookOpen, Clock, Users, HelpCircle, Laugh, Gem, Info, Phone, Mic, Paperclip, PhoneOff, MicOff, Video, VideoOff, Volume2, VolumeX, Minus, Maximize2, Minimize2, Flame, Database, Cloud, Copy, CheckCircle, Brain } from 'lucide-react';
+import { Send, Heart, Sparkles, Menu, Plus, MessageSquare, X, ArrowDown, Search, MoreVertical, Edit2, Trash2, Check, Download, Settings, Moon, Sun, Eye, Smile, Frown, Angry, BookOpen, Clock, Users, HelpCircle, Laugh, Gem, Info, Phone, Mic, Paperclip, PhoneOff, MicOff, Video, VideoOff, Volume2, VolumeX, Minus, Maximize2, Minimize2, Flame, Database, Cloud, Copy, CheckCircle, Brain, Key, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { geminiService } from './services/geminiService';
+import { apiKeyPool } from './services/apiKeyPool';
 import { supabaseService, TasfiMemory } from './services/supabaseService';
 import { ChatMessage } from './components/ChatMessage';
 import { ThemeBackground } from './components/ThemeBackground';
@@ -168,6 +169,11 @@ export default function App() {
   const [isMicMuted, setIsMicMuted] = useState(false);
 
   const [isListening, setIsListening] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState('');
+  const [interimTranscript, setInterimTranscript] = useState('');
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const recordedPrefixRef = useRef<string>('');
+  const voiceTranscriptRef = useRef<string>('');
   const [showTextareaScrollbar, setShowTextareaScrollbar] = useState(false);
   
   const [isDbLoading, setIsDbLoading] = useState(false);
@@ -176,6 +182,40 @@ export default function App() {
   const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [copiedSql, setCopiedSql] = useState(false);
+  const [, setKeyPoolVersion] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = apiKeyPool.subscribe(() => {
+      setKeyPoolVersion(v => v + 1);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Visual viewport height handler for mobile virtual keyboard
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const updateViewport = () => {
+      if (window.visualViewport) {
+        setViewportHeight(window.visualViewport.height);
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 100);
+      }
+    };
+
+    updateViewport();
+    window.visualViewport.addEventListener('resize', updateViewport);
+    window.visualViewport.addEventListener('scroll', updateViewport);
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateViewport);
+        window.visualViewport.removeEventListener('scroll', updateViewport);
+      }
+    };
+  }, []);
 
   // Agentic Memory States
   const [memories, setMemories] = useState<TasfiMemory[]>([]);
@@ -273,6 +313,18 @@ export default function App() {
   };
 
   useEffect(() => {
+    let interval: any;
+    if (isListening) {
+      interval = setInterval(() => {
+        setRecordingSeconds(prev => prev + 1);
+      }, 1000);
+    } else {
+      setRecordingSeconds(0);
+    }
+    return () => clearInterval(interval);
+  }, [isListening]);
+
+  useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       const rec = new SpeechRecognition();
@@ -282,22 +334,33 @@ export default function App() {
       
       rec.onstart = () => {
         setIsListening(true);
+        setRecordingSeconds(0);
+        voiceTranscriptRef.current = '';
+        setLiveTranscript('');
+        setInterimTranscript('');
       };
       
       rec.onresult = (event: any) => {
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
+        let accumulatedFinal = '';
+        let currentInterim = '';
+        for (let i = 0; i < event.results.length; ++i) {
+          const item = event.results[i];
+          const textChunk = item[0]?.transcript || '';
+          if (item.isFinal) {
+            accumulatedFinal += (accumulatedFinal ? ' ' : '') + textChunk.trim();
+          } else {
+            currentInterim += (currentInterim ? ' ' : '') + textChunk.trim();
           }
         }
-        if (finalTranscript) {
-          setInput(prev => prev + (prev.endsWith(' ') || prev === '' ? '' : ' ') + finalTranscript);
-        }
+        
+        const cleanSpoken = [accumulatedFinal, currentInterim].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+        voiceTranscriptRef.current = cleanSpoken;
+        setLiveTranscript(cleanSpoken);
+        setInterimTranscript(currentInterim);
       };
       
       rec.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
+        console.warn("Speech recognition notice:", event.error);
         if (event.error === 'not-allowed') {
           alert('ভয়েস রিকগনেশন ব্যবহারের জন্য মাইক্রোফোন পারমিশন প্রয়োজন।');
         }
@@ -305,6 +368,12 @@ export default function App() {
       };
       
       rec.onend = () => {
+        if (voiceTranscriptRef.current.trim()) {
+          const spoken = voiceTranscriptRef.current.trim();
+          const prefix = recordedPrefixRef.current.trim();
+          const combined = prefix ? `${prefix} ${spoken}` : spoken;
+          setInput(combined);
+        }
         setIsListening(false);
       };
       
@@ -319,13 +388,75 @@ export default function App() {
     }
     
     if (isListening) {
-      recognitionRef.current.stop();
+      handleDoneRecording();
     } else {
       try {
+        recordedPrefixRef.current = input;
+        voiceTranscriptRef.current = '';
+        setLiveTranscript('');
+        setInterimTranscript('');
+        setRecordingSeconds(0);
         recognitionRef.current.start();
       } catch (e) {
-        console.error(e);
+        console.warn("Speech recognition start notice:", e);
       }
+    }
+  };
+
+  const handleCancelRecording = () => {
+    if (recognitionRef.current && isListening) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
+    setIsListening(false);
+    setInput(recordedPrefixRef.current);
+    voiceTranscriptRef.current = '';
+    setLiveTranscript('');
+    setInterimTranscript('');
+  };
+
+  const handleDoneRecording = () => {
+    if (recognitionRef.current && isListening) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
+    setIsListening(false);
+    const spoken = voiceTranscriptRef.current.trim();
+    if (spoken) {
+      const prefix = recordedPrefixRef.current.trim();
+      const combined = prefix ? `${prefix} ${spoken}` : spoken;
+      setInput(combined);
+    }
+    voiceTranscriptRef.current = '';
+    setLiveTranscript('');
+    setInterimTranscript('');
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.selectionStart = textareaRef.current.value.length;
+        textareaRef.current.selectionEnd = textareaRef.current.value.length;
+      }
+    }, 60);
+  };
+
+  const handleSendFromRecording = () => {
+    if (recognitionRef.current && isListening) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
+    setIsListening(false);
+    const spoken = voiceTranscriptRef.current.trim();
+    const prefix = recordedPrefixRef.current.trim();
+    const combined = prefix && spoken ? `${prefix} ${spoken}` : (spoken || prefix);
+    setInput('');
+    voiceTranscriptRef.current = '';
+    setLiveTranscript('');
+    setInterimTranscript('');
+    if (combined) {
+      handleSend(combined);
     }
   };
 
@@ -665,17 +796,19 @@ export default function App() {
     const messageText = text || input.trim();
     if (!messageText.trim() || isLoading) return;
 
+    const replyingContext = replyingTo ? {
+      id: replyingTo.id,
+      content: replyingTo.content,
+      role: replyingTo.role
+    } : undefined;
+
     const userMessage: Message = {
       id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       role: 'user',
       content: messageText,
       timestamp: new Date(),
       status: 'sending',
-      replyTo: replyingTo ? {
-        id: replyingTo.id,
-        content: replyingTo.content,
-        role: replyingTo.role
-      } : undefined
+      replyTo: replyingContext
     };
 
     const updatedMessages = [...activeChat.messages, userMessage];
@@ -737,7 +870,7 @@ export default function App() {
       // Retrieve persona-specific memories + global memories for Robin
       const relevantMemories = memories.filter(m => m.persona === mood || m.persona === 'global');
 
-      const aiResponse = await geminiService.chat(messageText, history, mood, relevantMemories);
+      const aiResponse = await geminiService.chat(messageText, history, mood, relevantMemories, replyingContext);
       
       const modelMessage: Message = {
         id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -829,7 +962,10 @@ export default function App() {
         {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
       </AnimatePresence>
 
-      <div className={`flex h-screen max-w-4xl mx-auto shadow-2xl overflow-hidden relative font-sans theme-${theme} bg-romantic-pink text-text-main transition-all duration-500`}>
+      <div 
+        style={{ height: viewportHeight ? `${viewportHeight}px` : '100dvh' }}
+        className={`flex h-[100dvh] max-h-[100dvh] w-full max-w-4xl mx-auto shadow-2xl overflow-hidden relative font-sans theme-${theme} bg-romantic-pink text-text-main transition-all duration-300`}
+      >
       <ThemeBackground theme={theme} />
       
       {/* Sidebar / Chat List */}
@@ -1042,10 +1178,10 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <div className="flex-1 flex flex-col min-w-0 relative">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
         {/* Header */}
         {/* Premium Head-turner Header */}
-        <header className="bg-gradient-to-r from-card-bg/95 via-card-bg/90 to-card-bg/95 backdrop-blur-lg border-b border-romantic-pink/20 px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-[0_4px_20px_0_rgba(253,164,186,0.08)]">
+        <header className="shrink-0 bg-gradient-to-r from-card-bg/95 via-card-bg/90 to-card-bg/95 backdrop-blur-lg border-b border-romantic-pink/20 px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-[0_4px_20px_0_rgba(253,164,186,0.08)]">
           <div 
             className="flex items-center gap-3 md:gap-4 cursor-pointer group"
             onClick={() => setIsProfileModalOpen(true)}
@@ -1129,7 +1265,7 @@ export default function App() {
         {/* Chat Area */}
         <main 
           ref={chatContainerRef}
-          className="flex-1 overflow-y-auto px-5 py-6 md:px-10 md:py-10 space-y-4 relative scroll-smooth z-10"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2.5 py-2 sm:px-6 sm:py-3 space-y-1 sm:space-y-1.5 relative scroll-smooth z-10"
         >
           <div className="flex flex-col min-h-full">
             {(() => {
@@ -1162,15 +1298,15 @@ export default function App() {
                 key="ai-loading-indicator"
                 initial={{ opacity: 0, y: 5 }} 
                 animate={{ opacity: 1, y: 0 }}
-                className="flex justify-start mb-4"
+                className="flex justify-start mb-2"
               >
-                <div className="bg-card-bg border border-border-custom px-4 py-2 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-2">
+                <div className="bg-card-bg border border-border-custom px-3 py-1.5 rounded-2xl rounded-tl-none shadow-xs flex items-center gap-2">
                   <div className="flex gap-1">
                     <span className="w-1.5 h-1.5 bg-romantic-deep rounded-full animate-bounce"></span>
                     <span className="w-1.5 h-1.5 bg-romantic-deep rounded-full animate-bounce [animation-delay:0.2s]"></span>
                     <span className="w-1.5 h-1.5 bg-romantic-deep rounded-full animate-bounce [animation-delay:0.4s]"></span>
                   </div>
-                  <span className="text-xs text-romantic-deep font-medium italic">তাসফি লিখছে...</span>
+                  <span className="text-[11px] text-romantic-deep font-medium italic">তাসফি লিখছে...</span>
                 </div>
               </motion.div>
             )}
@@ -1186,46 +1322,46 @@ export default function App() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.5 }}
                 onClick={() => scrollToBottom()}
-                className="fixed bottom-24 right-6 md:right-10 p-2.5 bg-card-bg border border-border-custom rounded-full shadow-xl text-romantic-deep hover:bg-romantic-pink z-20"
+                className="fixed bottom-16 right-4 sm:right-8 p-2 bg-card-bg border border-border-custom rounded-full shadow-lg text-romantic-deep hover:bg-romantic-pink z-20"
               >
-                <ArrowDown className="w-5 h-5" />
+                <ArrowDown className="w-4 h-4" />
               </motion.button>
             )}
           </AnimatePresence>
         </main>
 
-        {/* Input Area */}
-        <footer className="p-4 pb-3 bg-card-bg border-t border-border-custom z-30 shadow-[0_-4px_10px_rgba(0,0,0,0.03)] relative">
+        {/* Input Area (Compact Messenger-Style) */}
+        <footer className="shrink-0 sticky bottom-0 bg-card-bg/98 backdrop-blur-md border-t border-border-custom/80 z-30 shadow-[0_-3px_10px_rgba(0,0,0,0.03)] relative px-2 py-1.5 sm:px-4 sm:py-2 pb-[max(0.4rem,env(safe-area-inset-bottom))]">
           <AnimatePresence>
             {replyingTo && (
               <motion.div
                 key="reply-context-bar"
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="mb-3 p-3 bg-romantic-pink/20 border-l-4 border-romantic-deep rounded-r-2xl flex items-center justify-between shadow-sm"
+                exit={{ opacity: 0, y: 6 }}
+                className="mb-1.5 p-2 bg-romantic-pink/35 border-l-3 border-romantic-deep rounded-r-xl flex items-center justify-between shadow-xs"
               >
-                <div className="flex-1 truncate mr-4">
-                  <p className="text-[10px] font-bold text-romantic-deep uppercase tracking-wider">রিপ্লাই দিচ্ছো {replyToName(replyingTo.role)} কে</p>
-                  <p className="text-xs text-text-main truncate opacity-90">{replyingTo.content}</p>
+                <div className="flex-1 truncate mr-2">
+                  <p className="text-[9px] font-bold text-romantic-deep uppercase tracking-wider">রিপ্লাই দিচ্ছো {replyToName(replyingTo.role)} কে</p>
+                  <p className="text-[11px] text-text-main truncate opacity-90">{replyingTo.content}</p>
                 </div>
                 <button 
                   onClick={() => setReplyingTo(null)}
-                  className="p-1.5 hover:bg-romantic-deep/10 rounded-full text-text-muted transition-colors"
+                  className="p-1 hover:bg-romantic-deep/10 rounded-full text-text-muted transition-colors"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </motion.div>
             )}
           </AnimatePresence>
-          <div className="flex items-center gap-2 max-w-full relative">
-            <div className="relative">
+          <div className="flex items-center gap-1.5 max-w-full relative">
+            <div className="relative shrink-0">
               <button
                 onClick={() => setIsPlusMenuOpen(!isPlusMenuOpen)}
-                className="w-9 h-9 p-0 flex items-center justify-center bg-romantic-pink hover:bg-romantic-deep text-romantic-deep hover:text-white rounded-full transition-all active:scale-95 shadow-sm"
+                className="w-8 h-8 p-0 flex items-center justify-center bg-romantic-pink hover:bg-romantic-deep text-romantic-deep hover:text-white rounded-full transition-all active:scale-95 shadow-xs"
                 title="ফিচার অপশনস"
               >
-                <Plus className="w-5 h-5" />
+                <Plus className="w-4.5 h-4.5" />
               </button>
               
               <AnimatePresence>
@@ -1236,30 +1372,33 @@ export default function App() {
                       onClick={() => setIsPlusMenuOpen(false)}
                     />
                     <motion.div
-                      initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 15, scale: 0.95 }}
-                      className="absolute bottom-12 left-0 bg-card-bg border border-border-custom rounded-2xl shadow-xl p-2.5 z-50 min-w-[160px] flex flex-col gap-1.5 shadow-[0_10px_25px_rgba(0,0,0,0.15)]"
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute bottom-11 left-0 bg-card-bg border border-border-custom rounded-2xl shadow-xl p-2 z-50 min-w-[150px] flex flex-col gap-1 shadow-[0_8px_20px_rgba(0,0,0,0.12)]"
                     >
                       <button 
-                        onClick={() => setIsPlusMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 text-xs text-text-main hover:bg-romantic-pink/40 rounded-xl transition-all font-medium text-left w-full"
+                        onClick={() => {
+                          setIsPlusMenuOpen(false);
+                          toggleListening();
+                        }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-text-main hover:bg-romantic-pink/40 rounded-xl transition-all font-medium text-left w-full"
                       >
-                        <Mic className="w-4.5 h-4.5 text-romantic-deep" />
+                        <Mic className="w-4 h-4 text-romantic-deep" />
                         ভয়েস মেসেজ
                       </button>
                       <button 
                         onClick={() => setIsPlusMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 text-xs text-text-main hover:bg-romantic-pink/40 rounded-xl transition-all font-medium text-left w-full"
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-text-main hover:bg-romantic-pink/40 rounded-xl transition-all font-medium text-left w-full"
                       >
-                        <Paperclip className="w-4.5 h-4.5 text-blue-500" />
+                        <Paperclip className="w-4 h-4 text-blue-500" />
                         ফাইল আপলোড
                       </button>
                       <button 
                         onClick={() => setIsPlusMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 text-xs text-text-main hover:bg-romantic-pink/40 rounded-xl transition-all font-medium text-left w-full"
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-text-main hover:bg-romantic-pink/40 rounded-xl transition-all font-medium text-left w-full"
                       >
-                        <Heart className="w-4.5 h-4.5 text-red-500 fill-current" />
+                        <Heart className="w-4 h-4 text-red-500 fill-current" />
                         উপহার পাঠান
                       </button>
                     </motion.div>
@@ -1268,57 +1407,124 @@ export default function App() {
               </AnimatePresence>
             </div>
 
-            <div className="flex-1 min-w-0 bg-input-bg border border-border-custom/30 rounded-[1.5rem] flex items-center relative py-1 md:py-1.5 pl-2 pr-1 shadow-inner focus-within:ring-2 focus-within:ring-romantic-deep/20 transition-all">
-              <button
-                type="button"
-                onClick={toggleListening}
-                className={`p-2.5 rounded-full transition-all active:scale-90 flex items-center justify-center flex-shrink-0 ${
-                  isListening 
-                    ? 'bg-red-500 text-white animate-pulse shadow-md shadow-red-500/20' 
-                    : 'text-text-muted hover:bg-romantic-pink/40 hover:text-romantic-deep'
-                }`}
-                title={isListening ? "ভয়েস রেকর্ডিং থামান" : "ভয়েস দিয়ে টাইপ করুন"}
-              >
-                <Mic className={`w-4.5 h-4.5 ${isListening ? 'animate-bounce' : ''}`} />
-              </button>
+            {/* Input Container: Seamless morph between Text and Gemini In-Bar Sound Wave */}
+            <div className="flex-1 min-w-0 bg-input-bg border border-border-custom/40 rounded-[1.3rem] flex items-center relative py-0.5 px-1 shadow-inner focus-within:ring-1.5 focus-within:ring-romantic-deep/20 transition-all">
+              {isListening ? (
+                <div className="flex-1 flex items-center justify-between px-2 py-0.5 gap-2 min-h-[34px] animate-fade-in">
+                  {/* Left: Recording pulse indicator and timer */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                    </span>
+                    <span className="text-[11px] font-mono text-red-500 font-bold">
+                      {formatCallTime(recordingSeconds)}
+                    </span>
+                  </div>
 
-              <textarea
-                ref={textareaRef}
-                rows={1}
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  triggerScrollbarVisibility();
-                }}
-                onScroll={triggerScrollbarVisibility}
-                onKeyDown={handleKeyDown}
-                placeholder={isListening ? "ভয়েস রেকর্ড হচ্ছে, কথা বলুন..." : "তোমার মনের কথা বলো..."}
-                className={`flex-1 bg-transparent border-none outline-none py-2 px-2.5 pr-4 text-sm text-text-main resize-none max-h-36 min-h-[38px] focus:ring-0 ${
-                  showTextareaScrollbar ? 'textarea-scroll-active' : 'textarea-scroll-inactive'
-                }`}
-                style={{ lineHeight: '1.4rem' }}
-              />
+                  {/* Center: Gemini/ChatGPT Official Style Dynamic Sound Wave + Live Text */}
+                  <div className="flex-1 min-w-0 flex flex-col items-center justify-center overflow-hidden px-1">
+                    <div className="flex items-center gap-1 h-5 justify-center">
+                      {[4, 8, 14, 18, 12, 16, 20, 15, 10, 16, 12, 6].map((height, idx) => (
+                        <span
+                          key={idx}
+                          className="w-1 bg-gradient-to-t from-romantic-deep to-pink-400 rounded-full animate-audio-bar"
+                          style={{
+                            height: `${height}px`,
+                            animationDelay: `${(idx % 4) * 0.15}s`,
+                            animationDuration: `${0.6 + (idx % 3) * 0.2}s`
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-romantic-deep/90 truncate font-medium max-w-full text-center mt-0.5">
+                      {liveTranscript ? liveTranscript : "শুনছি... কথা বলুন"}
+                    </p>
+                  </div>
 
-              <div className="flex items-center justify-center px-1.5 pr-2 flex-shrink-0">
-                <button
-                  onClick={() => {
-                    handleSend();
-                    setTimeout(() => {
-                      if (textareaRef.current) textareaRef.current.focus();
-                    }, 50);
-                  }}
-                  disabled={!input.trim() || isLoading}
-                  className="p-2.5 bg-romantic-deep text-white rounded-full hover:bg-romantic-hover transition-all disabled:opacity-40 disabled:scale-100 active:scale-95 shadow-md flex items-center justify-center animate-fade-in"
-                  aria-label="Send message"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                </button>
-              </div>
+                  {/* Right Controls: Cancel (X), Done/Check (✓), and Direct Send */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleCancelRecording}
+                      className="p-1.5 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all active:scale-90"
+                      title="বাতিল করুন"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDoneRecording}
+                      className="p-1.5 bg-romantic-deep text-white rounded-full hover:bg-romantic-hover shadow-xs transition-all active:scale-95 flex items-center justify-center"
+                      title="রেকর্ডিং সমাপ্ত ও চ্যাট বক্সে লেখা নিন"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSendFromRecording}
+                      disabled={!liveTranscript.trim() && !input.trim()}
+                      className="w-7 h-7 bg-romantic-deep text-white rounded-full hover:bg-romantic-hover transition-all disabled:opacity-40 disabled:scale-100 active:scale-95 shadow-xs flex items-center justify-center ml-0.5"
+                      title="সরাসরি পাঠিয়ে দিন"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={toggleListening}
+                    className="p-1.5 rounded-full transition-all active:scale-90 flex items-center justify-center shrink-0 text-text-muted hover:bg-romantic-pink/40 hover:text-romantic-deep"
+                    title="ভয়েস দিয়ে টাইপ করুন"
+                  >
+                    <Mic className="w-4 h-4" />
+                  </button>
+
+                  <textarea
+                    ref={textareaRef}
+                    rows={1}
+                    value={input}
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                      triggerScrollbarVisibility();
+                    }}
+                    onFocus={() => {
+                      setTimeout(() => {
+                        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                      }, 250);
+                    }}
+                    onScroll={triggerScrollbarVisibility}
+                    onKeyDown={handleKeyDown}
+                    placeholder="মেসেজ লিখুন..."
+                    className={`flex-1 bg-transparent border-none outline-none py-1.5 px-2 text-[13.5px] text-text-main resize-none max-h-28 min-h-[34px] focus:ring-0 ${
+                      showTextareaScrollbar ? 'textarea-scroll-active' : 'textarea-scroll-inactive'
+                    }`}
+                    style={{ lineHeight: '1.35rem' }}
+                  />
+
+                  <div className="flex items-center justify-center p-0.5 shrink-0">
+                    <button
+                      onClick={() => {
+                        handleSend();
+                        setTimeout(() => {
+                          if (textareaRef.current) textareaRef.current.focus();
+                        }, 50);
+                      }}
+                      disabled={!input.trim() || isLoading}
+                      className="w-8 h-8 bg-romantic-deep text-white rounded-full hover:bg-romantic-hover transition-all disabled:opacity-40 disabled:scale-100 active:scale-95 shadow-sm flex items-center justify-center"
+                      aria-label="Send message"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-          <p className="text-[10px] text-center mt-2 text-text-muted opacity-60 font-medium tracking-wide">
-            তাসফি সবসময় তোমার পাশে আছে ❤️
-          </p>
         </footer>
 
         {/* Profile & Settings Modal */}
@@ -1419,6 +1625,78 @@ export default function App() {
                           <p className="font-bold text-[11px] sm:text-xs">{m.label}</p>
                         </button>
                       ))}
+                    </div>
+                  </section>
+
+                  {/* Gemini Multi-API Key Cluster (4 Active Keys) */}
+                  <section className="bg-input-bg border border-border-custom rounded-2xl p-4.5 space-y-3.5">
+                    <div className="flex items-center justify-between px-1">
+                      <div className="flex items-center gap-2">
+                        <Key className="w-5 h-5 text-romantic-deep" />
+                        <div>
+                          <h4 className="text-xs font-black text-text-main uppercase tracking-wider">Gemini এপিআই কি ক্লাস্টার</h4>
+                          <p className="text-[10px] text-text-muted">অটো-ব্যালেন্সিং ও ৪-কি ফেইলওভার</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 font-bold border border-green-500/20">
+                        {apiKeyPool.getTotalKeysCount()} টি কি সংযুক্ত
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {apiKeyPool.getKeyStatusList().map((item, idx) => {
+                        const isCurrent = apiKeyPool.getActiveIndex() === idx;
+                        const inCooldown = item.cooldownUntil > Date.now();
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-2.5 rounded-xl border transition-all text-xs flex flex-col justify-between gap-1.5 ${
+                              isCurrent
+                                ? "border-romantic-deep bg-romantic-pink/15 shadow-sm"
+                                : "border-border-custom bg-card-bg opacity-85"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-[11px] flex items-center gap-1.5 text-text-main">
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${inCooldown ? 'bg-amber-500' : isCurrent ? 'bg-green-500 animate-pulse' : 'bg-neutral-400'}`} />
+                                কি #{idx + 1}
+                              </span>
+                              <span className="text-[9px] font-mono font-bold text-text-muted">
+                                {isCurrent ? 'এক্টিভ' : inCooldown ? 'কুলডাউন' : 'স্ট্যান্ডবাই'}
+                              </span>
+                            </div>
+                            <div className="font-mono text-[10px] text-text-muted truncate">
+                              {item.key.slice(0, 8)}...{item.key.slice(-4)}
+                            </div>
+                            <div className="text-[9px] text-text-muted flex justify-between pt-1 border-t border-border-custom/50">
+                              <span>সফল: {item.successCount}</span>
+                              {item.failureCount > 0 ? (
+                                <span className="text-amber-500">লিমিট: {item.failureCount}</span>
+                              ) : (
+                                <span className="text-green-600 dark:text-green-400 font-bold">রেডি</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 text-[11px] text-text-muted px-1">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                        <span>একটি কি লিমিট হলে অটো অন্যটিতে শিফট হবে।</span>
+                      </span>
+                      <button
+                        onClick={() => {
+                          apiKeyPool.rotateToNext(false);
+                          setKeyPoolVersion(t => t + 1);
+                        }}
+                        className="px-2.5 py-1 bg-card-bg hover:bg-romantic-pink/20 text-romantic-deep rounded-lg border border-border-custom text-[10px] font-bold flex items-center gap-1.5 cursor-pointer transition-all shrink-0 ml-2"
+                        title="ম্যানুয়ালি পরবর্তী কি-তে সুইচ করুন"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        <span>সুইচ কি</span>
+                      </button>
                     </div>
                   </section>
 
