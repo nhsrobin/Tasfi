@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Markdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -265,12 +266,23 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
     setIsBuffering(true);
     try {
-      const audioUrl = await geminiService.generateVoice(content, role, subMode);
+      // Strip markdown symbols before sending to TTS so it only reads pure human words
+      const cleanVoiceText = content
+        .replace(/```[\s\S]*?```/g, '')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/[*_#~>]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      const audioUrl = await geminiService.generateVoice(cleanVoiceText || content, role, subMode);
       if (audioUrl) {
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
         audio.onended = () => setIsPlaying(false);
-        audio.onerror = () => fallbackBrowserSpeech();
+        audio.onerror = (err) => {
+          console.warn("Audio playback notice, using browser speech:", err);
+          fallbackBrowserSpeech();
+        };
         await audio.play();
         setIsPlaying(true);
       } else {
@@ -502,11 +514,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             </button>
           )}
 
-          {/* Compact Bubble Container (Zero Fat Padding) */}
+          {/* Compact Bubble Container (Zero Fat Padding, No Scrollbars) */}
           <div
             onClick={handleToggleStatusText}
             className={cn(
-              "relative px-2.5 py-1 rounded-2xl shadow-xs transition-all duration-150 select-text cursor-pointer",
+              "chat-bubble relative px-2.5 py-1.5 rounded-2xl shadow-xs transition-all duration-150 select-text cursor-pointer overflow-visible [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
               isUser 
                 ? "bg-romantic-deep text-white rounded-tr-none shadow-romantic-deep/10" 
                 : "bg-card-bg text-text-main rounded-tl-none border border-border-custom shadow-black/5",
@@ -532,11 +544,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="markdown-body text-[13px] sm:text-[13.5px] leading-tight break-words overflow-wrap-anywhere overflow-visible [&_p]:mb-1 [&_p:last-child]:mb-0">
+              <div className="markdown-body text-[13px] sm:text-[13.5px] leading-[1.22] break-words overflow-wrap-anywhere overflow-visible [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden [&>p:not(:first-child)]:mt-0.5 [&>p]:m-0 [&>p]:p-0 [&>p]:leading-[1.22]">
                 <Markdown
+                  remarkPlugins={[remarkBreaks]}
                   components={{
                     p({ children }) {
-                      return <p className="mb-1 last:mb-0 leading-tight block">{children}</p>;
+                      return <p className="m-0 p-0 leading-[1.22] block">{children}</p>;
                     },
                     code({ className, children, ...props }) {
                       const match = /language-(\w+)/.exec(className || '');

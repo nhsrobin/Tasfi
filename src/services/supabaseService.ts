@@ -189,7 +189,17 @@ export class SupabaseService {
 
       this.tablesReady = true;
 
-      return chatsData.map((chat: any) => {
+      const now = Date.now();
+      const validChats = chatsData.filter((chat: any) => {
+        if (chat.expires_at && Number(chat.expires_at) <= now) {
+          // Asynchronously purge expired temporary chat from database
+          this.deleteChat(chat.id).catch(() => {});
+          return false;
+        }
+        return true;
+      });
+
+      return validChats.map((chat: any) => {
         const chatMessages = (messagesData || [])
           .filter((msg: any) => msg.chat_id === chat.id)
           .map((msg: any) => ({
@@ -202,12 +212,16 @@ export class SupabaseService {
             status: msg.status || undefined
           }));
 
+        const expiresAt = chat.expires_at ? Number(chat.expires_at) : undefined;
+        const isTemporary = Boolean(chat.is_temporary || (expiresAt && expiresAt > 0));
+
         return {
           id: chat.id,
           title: chat.title,
           mood: chat.mood || 'normal',
           lastUpdated: new Date(chat.last_updated),
-          expiresAt: chat.expiresAt ? Number(chat.expiresAt) : undefined,
+          isTemporary,
+          expiresAt,
           messages: chatMessages
         };
       });
@@ -218,6 +232,33 @@ export class SupabaseService {
       console.warn('Supabase loadChats notice (fallback to localStorage):', error?.message || error);
       return null;
     }
+  }
+
+  /**
+   * Purges expired temporary chats from Supabase.
+   */
+  async purgeExpiredChats(): Promise<string[]> {
+    if (!this.isActive() || !this.client || this.tablesReady === false) return [];
+    try {
+      const now = Date.now();
+      const { data: expiredList } = await this.client
+        .from('tasfi_chats')
+        .select('id')
+        .not('expires_at', 'is', null)
+        .lt('expires_at', now);
+
+      if (expiredList && expiredList.length > 0) {
+        const ids = expiredList.map((c: any) => c.id);
+        await this.client
+          .from('tasfi_chats')
+          .delete()
+          .in('id', ids);
+        return ids;
+      }
+    } catch (e) {
+      console.warn('Expired chat purge notice:', e);
+    }
+    return [];
   }
 
   /**

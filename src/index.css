@@ -162,18 +162,33 @@ body {
   word-wrap: break-word;
   overflow-wrap: break-word;
   word-break: break-word;
-  line-height: 1.25 !important;
+  line-height: 1.22 !important;
   max-height: none !important;
   overflow: visible !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .markdown-body p {
+  margin: 0 !important;
   margin-top: 0 !important;
-  margin-bottom: 0.25rem !important; /* প্যারাগ্রাফ গ্যাপ ১ (4px) */
-  line-height: 1.25 !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  line-height: 1.22 !important;
   max-height: none !important;
   overflow: visible !important;
   display: block !important;
+}
+
+/* Normal, minimal gap between two paragraphs */
+.markdown-body p + p {
+  margin-top: 0.15rem !important;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+}
+
+.markdown-body p:empty {
+  display: none !important;
 }
 
 .markdown-body p:last-child {
@@ -208,22 +223,45 @@ body {
   font-family: monospace;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 5px;
+/* Ensure chat bubbles and markdown body NEVER show internal scrollbars */
+.markdown-body,
+.markdown-body *,
+.chat-bubble,
+.chat-bubble * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
-::-webkit-scrollbar-track {
+.markdown-body::-webkit-scrollbar,
+.markdown-body *::-webkit-scrollbar,
+.chat-bubble::-webkit-scrollbar,
+.chat-bubble *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Custom scrollbar only for scrollable containers (main chat container, sidebar) */
+main::-webkit-scrollbar,
+aside::-webkit-scrollbar,
+.scrollable-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+main::-webkit-scrollbar-track,
+aside::-webkit-scrollbar-track {
   background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
+main::-webkit-scrollbar-thumb,
+aside::-webkit-scrollbar-thumb {
   background: var(--primary-color);
   opacity: 0.3;
   border-radius: 10px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+main::-webkit-scrollbar-thumb:hover,
+aside::-webkit-scrollbar-thumb:hover {
   background: var(--primary-hover);
 }
 
@@ -241,11 +279,6 @@ body {
 .markdown-body code {
   max-height: none !important;
   overflow-y: visible !important;
-}
-
-.markdown-body {
-  overflow-y: visible !important;
-  overflow-x: auto !important;
 }
 
 /* Custom Scrollbar behavior for Textarea */

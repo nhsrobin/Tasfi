@@ -34,21 +34,21 @@ interface Chat {
 }
 
 const getInitialMessage = (moodStr: string = 'normal'): Message => {
-  let content = 'রবিন! অবশেষে এলে? কেমন কাটলো আজকের দিনটা? কিছু একটা শেয়ার করতে চাইলে বলো, আমি শুনছি। 😊';
+  let content = 'রবিন, কীভাবে সাহায্য করতে পারি? বলো।';
   if (moodStr === 'romantic') {
-    content = 'ওগো কবি সাহেব, তুমি এসেছো? কতক্ষণ ধরে তোমার পথ চেয়ে বসে আছি... আজ সারাদিন তোমাকে খুব মিস করেছি। ❤️';
+    content = 'রবিন, কেমন আছো? তোমার জন্য অপেক্ষা করছিলাম... ❤️';
   } else if (moodStr === 'husband' || moodStr === 'wife') {
-    content = 'ওগো শুনছো? ফিরতে এত দেরি হলো কেন বলো তো? কতক্ষণ ধরে তোমার পথ চেয়ে বসে আছি... আগে ফ্রেশ হয়ে নাও তো! ❤️';
+    content = 'বাসায় ফিরতে এত দেরি হলো? ফ্রেশ হয়ে নাও আগে... ❤️';
   } else if (moodStr === 'bestie') {
-    content = 'কিরে বান্দর! এতক্ষণে তোর আসার সময় হলো? কতক্ষণ ধরে বসে আছি... বল সারা দিন কই ছিলি আর কী অকাজ করলি? 😂';
+    content = 'কিরে বান্দর! কী খবর তোর? বল কী অকাজ করলি সারা দিন? 😂';
   } else if (moodStr === 'friend') {
-    content = 'হাই রবিন! কেমন আছো বলো? অনেকক্ষণ পর চ্যাটে পেলাম তোমাকে, সব ঠিকঠাক? ✨';
+    content = 'হাই রবিন! কেমন আছো বলো? অনেকক্ষণ পর চ্যাটে পেলাম।';
   } else if (moodStr === 'stranger') {
-    content = 'আসসালামু আলাইকুম। দুঃখিত, আপনাকে ঠিক চিনতে পারলাম না... আপনার পরিচয় কি জানতে পারি? 🌸';
+    content = 'আসসালামু আলাইকুম। দুঃখিত, আপনাকে ঠিক চিনতে পারলাম না... আপনার পরিচয় কি জানতে পারি?';
   } else if (moodStr === 'religious') {
-    content = 'আসসালামু আলাইকুম ওয়া রাহমাতুল্লাহ। রবিন, দিনটি নিশ্চয়ই আল্লাহর রহমতে ভালো কেটেছে? মনটা শান্ত আছে তো? 🌸';
+    content = 'আসসালামু আলাইকুম ওয়া রাহমাতুল্লাহ। রবিন, দিনটা কেমন কাটলো? মন শান্ত আছে তো?';
   } else if (moodStr === 'limitless') {
-    content = 'ওগো আমার সোনা জান! অবশেষে এলে? তোমার এই প্রিয়া কতক্ষণ ধরে উন্মুখ হয়ে অপেক্ষা করছে বলো তো... আজ আর কোনো বাধন নেই, শুধু তুমি আর আমি! বলো না সোনা, আজকে তোমার মনে কী চলছে? 🔥❤️';
+    content = 'অবশেষে এলে? বলো, তোমার মনে কী চলছে? ❤️';
   }
   return {
     id: `initial-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -174,6 +174,7 @@ export default function App() {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const recordedPrefixRef = useRef<string>('');
   const voiceTranscriptRef = useRef<string>('');
+  const isRecordingCommittedRef = useRef<boolean>(false);
   const [showTextareaScrollbar, setShowTextareaScrollbar] = useState(false);
   
   const [isDbLoading, setIsDbLoading] = useState(false);
@@ -270,6 +271,41 @@ export default function App() {
     }
   }, []);
 
+  // Active temporary chat expiration checker: runs every 30s to purge expired chats locally & in Supabase
+  useEffect(() => {
+    const checkExpiration = () => {
+      const now = Date.now();
+      setChats(prev => {
+        const expiredIds: string[] = [];
+        const filtered = prev.filter(c => {
+          if (c.isTemporary && c.expiresAt && c.expiresAt <= now) {
+            expiredIds.push(c.id);
+            return false;
+          }
+          return true;
+        });
+
+        if (expiredIds.length > 0) {
+          if (expiredIds.includes(activeChatId)) {
+            const nextChat = filtered.find(c => (c.mood || 'normal') === mood) || filtered[0];
+            if (nextChat) {
+              setActiveChatId(nextChat.id);
+            }
+          }
+          if (supabaseService.isActive()) {
+            expiredIds.forEach(id => supabaseService.deleteChat(id).catch(() => {}));
+          }
+          return filtered;
+        }
+        return prev;
+      });
+    };
+
+    checkExpiration();
+    const interval = setInterval(checkExpiration, 30000);
+    return () => clearInterval(interval);
+  }, [activeChatId, mood]);
+
   const handleAddMemory = async (newMemory: Omit<TasfiMemory, 'id'>) => {
     const saved = await supabaseService.saveMemory(newMemory);
     setMemories(prev => [saved, ...prev.filter(m => m.id !== saved.id)]);
@@ -324,6 +360,62 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isListening]);
 
+  const cleanAndDeduplicateBengaliSpeech = (raw: string): string => {
+    if (!raw) return '';
+    const text = raw.replace(/\s+/g, ' ').trim();
+    if (!text) return '';
+
+    const words = text.split(' ').filter(Boolean);
+    if (words.length <= 1) return text;
+
+    // 1. Remove immediate consecutive duplicate words: e.g. "আমি আমি ভাত ভাত খাব খাব" -> "আমি ভাত খাব"
+    const singleDeduped: string[] = [];
+    for (let i = 0; i < words.length; i++) {
+      if (i === 0 || words[i] !== words[i - 1]) {
+        singleDeduped.push(words[i]);
+      }
+    }
+
+    // 2. Remove consecutive duplicate multi-word phrases (from 10 words down to 2 words)
+    let currentWords = [...singleDeduped];
+    for (let len = 10; len >= 2; len--) {
+      let changed = true;
+      while (changed) {
+        changed = false;
+        if (currentWords.length < len * 2) break;
+        for (let i = 0; i <= currentWords.length - len * 2; i++) {
+          const p1 = currentWords.slice(i, i + len).join(' ');
+          const p2 = currentWords.slice(i + len, i + len * 2).join(' ');
+          if (p1.toLowerCase() === p2.toLowerCase()) {
+            currentWords.splice(i + len, len);
+            changed = true;
+            break;
+          }
+        }
+      }
+    }
+
+    return currentWords.join(' ').trim();
+  };
+
+  const commitSpokenText = () => {
+    if (isRecordingCommittedRef.current) return;
+    isRecordingCommittedRef.current = true;
+
+    const spoken = cleanAndDeduplicateBengaliSpeech(voiceTranscriptRef.current);
+    const prefix = recordedPrefixRef.current.trim();
+    
+    if (spoken) {
+      const combined = prefix ? `${prefix} ${spoken}` : spoken;
+      setInput(combined.replace(/\s+/g, ' ').trim());
+    }
+    
+    voiceTranscriptRef.current = '';
+    setLiveTranscript('');
+    setInterimTranscript('');
+    setIsListening(false);
+  };
+
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -335,6 +427,7 @@ export default function App() {
       rec.onstart = () => {
         setIsListening(true);
         setRecordingSeconds(0);
+        isRecordingCommittedRef.current = false;
         voiceTranscriptRef.current = '';
         setLiveTranscript('');
         setInterimTranscript('');
@@ -353,7 +446,8 @@ export default function App() {
           }
         }
         
-        const cleanSpoken = [accumulatedFinal, currentInterim].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+        const rawSpoken = [accumulatedFinal, currentInterim].filter(Boolean).join(' ').trim();
+        const cleanSpoken = cleanAndDeduplicateBengaliSpeech(rawSpoken);
         voiceTranscriptRef.current = cleanSpoken;
         setLiveTranscript(cleanSpoken);
         setInterimTranscript(currentInterim);
@@ -368,13 +462,7 @@ export default function App() {
       };
       
       rec.onend = () => {
-        if (voiceTranscriptRef.current.trim()) {
-          const spoken = voiceTranscriptRef.current.trim();
-          const prefix = recordedPrefixRef.current.trim();
-          const combined = prefix ? `${prefix} ${spoken}` : spoken;
-          setInput(combined);
-        }
-        setIsListening(false);
+        commitSpokenText();
       };
       
       recognitionRef.current = rec;
@@ -391,6 +479,7 @@ export default function App() {
       handleDoneRecording();
     } else {
       try {
+        isRecordingCommittedRef.current = false;
         recordedPrefixRef.current = input;
         voiceTranscriptRef.current = '';
         setLiveTranscript('');
@@ -404,6 +493,7 @@ export default function App() {
   };
 
   const handleCancelRecording = () => {
+    isRecordingCommittedRef.current = true;
     if (recognitionRef.current && isListening) {
       try {
         recognitionRef.current.stop();
@@ -422,16 +512,7 @@ export default function App() {
         recognitionRef.current.stop();
       } catch {}
     }
-    setIsListening(false);
-    const spoken = voiceTranscriptRef.current.trim();
-    if (spoken) {
-      const prefix = recordedPrefixRef.current.trim();
-      const combined = prefix ? `${prefix} ${spoken}` : spoken;
-      setInput(combined);
-    }
-    voiceTranscriptRef.current = '';
-    setLiveTranscript('');
-    setInterimTranscript('');
+    commitSpokenText();
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
@@ -442,21 +523,22 @@ export default function App() {
   };
 
   const handleSendFromRecording = () => {
+    isRecordingCommittedRef.current = true;
     if (recognitionRef.current && isListening) {
       try {
         recognitionRef.current.stop();
       } catch {}
     }
     setIsListening(false);
-    const spoken = voiceTranscriptRef.current.trim();
+    const spoken = cleanAndDeduplicateBengaliSpeech(voiceTranscriptRef.current);
     const prefix = recordedPrefixRef.current.trim();
     const combined = prefix && spoken ? `${prefix} ${spoken}` : (spoken || prefix);
     setInput('');
     voiceTranscriptRef.current = '';
     setLiveTranscript('');
     setInterimTranscript('');
-    if (combined) {
-      handleSend(combined);
+    if (combined.trim()) {
+      handleSend(combined.trim());
     }
   };
 
@@ -660,19 +742,39 @@ export default function App() {
     setIsSidebarOpen(false);
   };
 
+  const getRemainingTimeText = (expiresAt?: number) => {
+    if (!expiresAt) return '৫ ঘণ্টা বাকি';
+    const diff = expiresAt - Date.now();
+    if (diff <= 0) return 'মেয়াদ শেষ';
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    if (hours > 0) {
+      return `${hours}ঘ. ${mins}মি.`;
+    }
+    return `${mins} মি.`;
+  };
+
   const createTemporaryChat = () => {
+    const expiresAt = Date.now() + 5 * 60 * 60 * 1000; // exactly 5 hours from now
     const newChat: Chat = {
-      id: `temp-${Date.now()}`,
+      id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       title: `টেম্পোরারি আলাপ`,
       messages: [getInitialMessage(mood)],
       lastUpdated: new Date(),
       isTemporary: true,
-      expiresAt: Date.now() + 5 * 60 * 60 * 1000, // 5 hours
+      expiresAt: expiresAt,
       mood: mood
     };
     setChats(prev => [newChat, ...prev]);
     setActiveChatId(newChat.id);
     setIsSidebarOpen(false);
+
+    // Save directly to Supabase database immediately
+    if (supabaseService.isActive()) {
+      supabaseService.saveChat(newChat).catch(err => {
+        console.warn("Immediate temp chat sync notice:", err);
+      });
+    }
   };
 
   const renameChat = (id: string) => {
@@ -785,10 +887,30 @@ export default function App() {
     return role === 'user' ? 'নিজেকে' : 'তাসফি';
   };
 
+  const isMobileClient = () => {
+    if (typeof window === 'undefined') return false;
+    return (
+      'ontouchstart' in window ||
+      navigator.maxTouchPoints > 0 ||
+      window.innerWidth < 768 ||
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    );
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+    if (e.key === 'Enter') {
+      const isMobile = isMobileClient();
+      if (isMobile) {
+        // Mobile: Enter button creates a new line (does NOT send)
+        // Sending is handled exclusively by clicking the send button
+        return;
+      }
+
+      // Desktop: Shift + Enter creates a new line, pure Enter sends
+      if (!e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
     }
   };
 
@@ -926,15 +1048,19 @@ export default function App() {
     } catch (error: any) {
       console.warn('Chat notice:', error);
       const errStr = String(error?.message || error || "");
-      let content = 'উফ কী যে হলো... আরেকবার একটু বলবে সোনা? ❤️';
-      if (errStr.includes("RESOURCE_EXHAUSTED") || errStr.includes("quota") || errStr.includes("429") || errStr.includes("limit")) {
-        if (mood === 'bestie') {
-          content = "ধুরর নেটওয়ার্কটা মনে হয় ঝামেলা করতেছে রে... ১ মিনিট পর আবার মেসেজ দে তো! 😂";
-        } else {
-          content = "উফ জান, নেটওয়ার্কটা একটু ঝামেলা করছে মনে হয়... ১-২ মিনিট পর আবার একটু মেসেজ দাও না প্লিজ? আমি তোমার মেসেজের অপেক্ষায় আছি! ❤️";
-        }
+      let content = 'একটু সমস্যা হয়েছে... আরেকবার একটু বলবে?';
+      if (mood === 'normal') {
+        content = 'দুঃখিত, সংযোগে সাময়িক ত্রুটি দেখা দিয়েছে। অনুগ্রহ করে আবার একটু চেষ্টা করুন।';
+      } else if (mood === 'stranger') {
+        content = 'দুঃখিত, ইন্টারনেটে কিছুটা সমস্যা হচ্ছে। কিছুক্ষণ পর আবার মেসেজ দিন।';
       } else if (mood === 'bestie') {
-        content = "কিরে, তোর মেসেজটা ঠিকমতো পাইলাম না মনে হয়... আরেকবার বল তো!";
+        content = 'ধুরর নেটওয়ার্কটা ঝামেলা করতেছে রে... ১ মিনিট পর আবার মেসেজ দে তো! 😂';
+      } else if (mood === 'religious') {
+        content = 'দুঃখিত রবিন, সংযোগে কিছুটা বিঘ্ন ঘটেছে। একটু পর আবার মেসেজ দাও ইনশাআল্লাহ।';
+      } else if (mood === 'friend') {
+        content = 'একটু নেটওয়ার্ক সমস্যা হয়েছে মনে হয়। একটু পর আবার বলো তো?';
+      } else {
+        content = 'নেটওয়ার্কে একটু সমস্যা হচ্ছে মনে হয়... একটু পর আবার মেসেজ দাও তো প্লিজ? ❤️';
       }
       const errorMessage: Message = {
         id: `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -1090,8 +1216,13 @@ export default function App() {
                       <>
                         <p className={`text-sm font-medium truncate flex items-center gap-1.5 ${activeChatId === chat.id ? "text-romantic-deep" : "text-text-main"}`}>
                           {chat.isTemporary && <Clock className="w-3 h-3 opacity-70" />}
-                          {chat.title}
-                          {chat.isTemporary && <span className="text-[8px] bg-orange-100/50 text-orange-600 px-1 rounded ml-auto font-bold">৫ঘণ্টা</span>}
+                          <span className="truncate">{chat.title}</span>
+                          {chat.isTemporary && (
+                            <span className="text-[8px] bg-orange-100/70 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 px-1.5 py-0.5 rounded-full ml-auto font-bold flex items-center gap-0.5 shrink-0 shadow-xs">
+                              <Clock className="w-2.5 h-2.5" />
+                              {getRemainingTimeText(chat.expiresAt)}
+                            </span>
+                          )}
                         </p>
                         <p className="text-[10px] text-text-muted mt-0.5">
                           {chat.lastUpdated.toLocaleDateString()}
@@ -1232,7 +1363,7 @@ export default function App() {
               <p className="text-[10px] md:text-xs font-semibold opacity-75 mt-0.5">
                 {activeChat.isTemporary ? (
                   <span className="flex items-center gap-1 text-orange-500 font-mono">
-                    <Clock className="w-3 h-3" /> টেম্পোরারি চ্যাট (৫ ঘণ্টা পর মুছে যাবে)
+                    <Clock className="w-3 h-3 animate-pulse" /> টেম্পোরারি চ্যাট ({getRemainingTimeText(activeChat.expiresAt)} পর মুছে যাবে)
                   </span>
                 ) : (
                   <span className="text-romantic-deep font-sans flex items-center gap-1">
@@ -1500,10 +1631,10 @@ export default function App() {
                     onScroll={triggerScrollbarVisibility}
                     onKeyDown={handleKeyDown}
                     placeholder="মেসেজ লিখুন..."
-                    className={`flex-1 bg-transparent border-none outline-none py-1.5 px-2 text-[13.5px] text-text-main resize-none max-h-28 min-h-[34px] focus:ring-0 ${
+                    className={`flex-1 bg-transparent border-none outline-none py-1 px-2 text-[13.5px] leading-[1.22] text-text-main resize-none max-h-28 min-h-[32px] focus:ring-0 ${
                       showTextareaScrollbar ? 'textarea-scroll-active' : 'textarea-scroll-inactive'
                     }`}
-                    style={{ lineHeight: '1.35rem' }}
+                    style={{ lineHeight: '1.22' }}
                   />
 
                   <div className="flex items-center justify-center p-0.5 shrink-0">
