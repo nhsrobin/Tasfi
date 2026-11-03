@@ -992,7 +992,23 @@ export default function App() {
       // Retrieve persona-specific memories + global memories for Robin
       const relevantMemories = memories.filter(m => m.persona === mood || m.persona === 'global');
 
-      const aiResponse = await geminiService.chat(messageText, history, mood, relevantMemories, replyingContext);
+      const previousMsg = activeChat.messages.length > 0 
+        ? activeChat.messages[activeChat.messages.length - 1] 
+        : undefined;
+      const lastMessageTime = previousMsg 
+        ? (previousMsg.timestamp instanceof Date ? previousMsg.timestamp.toISOString() : new Date(previousMsg.timestamp).toISOString()) 
+        : undefined;
+      const clientTime = new Date().toISOString();
+
+      const aiResponse = await geminiService.chat(
+        messageText, 
+        history, 
+        mood, 
+        relevantMemories, 
+        replyingContext,
+        clientTime,
+        lastMessageTime
+      );
       
       const modelMessage: Message = {
         id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

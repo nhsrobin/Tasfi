@@ -168,17 +168,27 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [showStatusText, setShowStatusText] = useState(false);
   const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const tapCountRef = useRef(0);
+  const lastTapTimeRef = useRef(0);
+  const tripleTapTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setEditValue(content);
+  }, [content]);
 
   useEffect(() => {
     return () => {
       if (statusTimeoutRef.current) {
         clearTimeout(statusTimeoutRef.current);
       }
+      if (tripleTapTimerRef.current) {
+        clearTimeout(tripleTapTimerRef.current);
+      }
     };
   }, []);
 
-  const handleToggleStatusText = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleToggleStatusText = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (isEditing) return;
     setShowStatusText(prev => !prev);
     
@@ -189,6 +199,42 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     statusTimeoutRef.current = setTimeout(() => {
       setShowStatusText(false);
     }, 4500);
+  };
+
+  const handleBubbleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isEditing) return;
+
+    const now = Date.now();
+    const timeDiff = now - lastTapTimeRef.current;
+    lastTapTimeRef.current = now;
+
+    if (timeDiff < 450) {
+      tapCountRef.current += 1;
+    } else {
+      tapCountRef.current = 1;
+    }
+
+    if (tripleTapTimerRef.current) {
+      clearTimeout(tripleTapTimerRef.current);
+    }
+
+    // 3 Taps reached -> Trigger message editing!
+    if (tapCountRef.current >= 3) {
+      tapCountRef.current = 0;
+      setEditValue(content);
+      setIsEditing(true);
+      if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
+        try { window.navigator.vibrate([40, 30, 60]); } catch {}
+      }
+      return;
+    }
+
+    // Delay single-tap status toggle slightly so 3 rapid taps don't glitch status text
+    tripleTapTimerRef.current = setTimeout(() => {
+      tapCountRef.current = 0;
+      handleToggleStatusText();
+    }, 280);
   };
   
   // Swipe to Reply State: Left for user message, Right for model message
@@ -419,13 +465,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               {isUser && (
                 <button
                   onClick={() => {
+                    setEditValue(content);
                     setIsEditing(true);
                     setIsMenuOpen(false);
                   }}
                   className="w-full flex items-center gap-4 px-5 py-4 hover:bg-romantic-pink/10 rounded-2xl transition-colors text-text-main"
                 >
                   <Edit3 className="w-5 h-5 text-emerald-500" />
-                  <span className="font-semibold">এডিট</span>
+                  <span className="font-semibold">এডিট করুন</span>
                 </button>
               )}
 
@@ -514,9 +561,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             </button>
           )}
 
-          {/* Compact Bubble Container (Zero Fat Padding, No Scrollbars) */}
+          {/* Compact Bubble Container (Zero Fat Padding, No Scrollbars, Triple-Tap to Edit) */}
           <div
-            onClick={handleToggleStatusText}
+            onClick={handleBubbleClick}
+            title="৩-বার দ্রুত ট্যাপ করে এডিট করুন"
             className={cn(
               "chat-bubble relative px-2.5 py-1.5 rounded-2xl shadow-xs transition-all duration-150 select-text cursor-pointer overflow-visible [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
               isUser 
@@ -526,20 +574,49 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             )}
           >
             {isEditing ? (
-              <div className="flex flex-col gap-1.5 min-w-[190px] w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="flex flex-col gap-1.5 min-w-[200px] w-full" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between text-[10px] font-bold opacity-80 mb-0.5">
+                  <span className={cn(isUser ? "text-white/90" : "text-romantic-deep")}>
+                    {isUser ? '✏️ নিজের মেসেজ এডিট' : '✏️ তাসফির মেসেজ এডিট'}
+                  </span>
+                  <span className="text-[9px] opacity-60">৩-ট্যাপ এডিটর</span>
+                </div>
                 <textarea
                   autoFocus
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
-                  className="w-full bg-transparent border-none outline-none text-xs sm:text-[13px] resize-none focus:ring-0 p-0 text-white leading-tight"
-                  rows={2}
+                  className={cn(
+                    "w-full rounded-lg p-1.5 text-xs sm:text-[13px] resize-none focus:outline-none leading-tight border transition-colors",
+                    isUser 
+                      ? "bg-black/20 text-white border-white/20 placeholder-white/60 focus:border-white/40" 
+                      : "bg-input-bg text-text-main border-border-custom placeholder-text-muted focus:border-romantic-deep/50"
+                  )}
+                  rows={Math.min(6, Math.max(2, editValue.split('\n').length))}
                 />
-                <div className="flex justify-end gap-1.5 border-t border-white/20 pt-1.5">
-                  <button onClick={() => setIsEditing(false)} className="p-1 px-1.5 hover:bg-white/10 rounded flex items-center gap-1 text-[9.5px]">
-                    <X className="w-2.5 h-2.5" /> বাতিল
+                <div className={cn(
+                  "flex justify-end gap-1.5 border-t pt-1.5",
+                  isUser ? "border-white/20" : "border-border-custom"
+                )}>
+                  <button 
+                    onClick={() => {
+                      setEditValue(content);
+                      setIsEditing(false);
+                    }} 
+                    className={cn(
+                      "p-1 px-2 rounded-md flex items-center gap-1 text-[10px] font-medium transition-colors",
+                      isUser ? "hover:bg-white/10 text-white/80" : "hover:bg-black/5 text-text-muted"
+                    )}
+                  >
+                    <X className="w-3 h-3" /> বাতিল
                   </button>
-                  <button onClick={handleSaveEdit} className="p-1 px-1.5 bg-white/20 hover:bg-white/30 rounded flex items-center gap-1 text-[9.5px] font-bold">
-                    <Check className="w-2.5 h-2.5" /> সেভ
+                  <button 
+                    onClick={handleSaveEdit} 
+                    className={cn(
+                      "p-1 px-2.5 rounded-md flex items-center gap-1 text-[10px] font-bold shadow-xs transition-transform active:scale-95",
+                      isUser ? "bg-white/20 hover:bg-white/30 text-white" : "bg-romantic-deep text-white hover:bg-romantic-hover"
+                    )}
+                  >
+                    <Check className="w-3 h-3" /> সেভ করুন
                   </button>
                 </div>
               </div>

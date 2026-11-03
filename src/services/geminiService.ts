@@ -20,7 +20,9 @@ export class GeminiService {
     history: { role: "user" | "model"; parts: { text: string }[] }[],
     mood: string = "normal",
     memories: TasfiMemory[] = [],
-    replyTo?: { id?: string; content?: string; role?: 'user' | 'model' }
+    replyTo?: { id?: string; content?: string; role?: 'user' | 'model' },
+    clientTime?: string,
+    lastMessageTime?: string
   ): Promise<string> {
     try {
       const res = await fetch("/api/chat", {
@@ -34,6 +36,8 @@ export class GeminiService {
           mood,
           memories,
           replyTo,
+          clientTime,
+          lastMessageTime,
         }),
       });
 
@@ -79,7 +83,9 @@ export class GeminiService {
     mood: string = "normal",
     memories: TasfiMemory[] = [],
     onChunk?: (textChunk: string) => void,
-    replyTo?: { id?: string; content?: string; role?: 'user' | 'model' }
+    replyTo?: { id?: string; content?: string; role?: 'user' | 'model' },
+    clientTime?: string,
+    lastMessageTime?: string
   ): Promise<string> {
     try {
       const res = await fetch("/api/chat/stream", {
@@ -93,12 +99,14 @@ export class GeminiService {
           mood,
           memories,
           replyTo,
+          clientTime,
+          lastMessageTime,
         }),
       });
 
       if (!res.ok || !res.body) {
         // Fall back to standard server chat
-        return await this.chat(message, history, mood, memories, replyTo);
+        return await this.chat(message, history, mood, memories, replyTo, clientTime, lastMessageTime);
       }
 
       const reader = res.body.getReader();

@@ -295,22 +295,82 @@ export const UNRESTRICTED_SAFETY_SETTINGS = [
 ];
 
 // ==========================================
-// Handlers for Chat & Streaming
 // ==========================================
+// Handlers for Chat & Streaming (with Temporal & Memory Awareness)
+// ==========================================
+
+export function getTemporalContext(clientTime?: string, lastMessageTime?: string): string {
+  const now = clientTime ? new Date(clientTime) : new Date();
+  
+  // Format current date and time in Bangladesh / Local friendly format
+  const days = ['রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার', 'শনিবার'];
+  const dayName = days[now.getDay()];
+  const hours = now.getHours();
+  const minutes = now.getMinutes().toString().padStart(2, '0');
+  
+  let period = 'রাত';
+  if (hours >= 5 && hours < 12) period = 'সকাল';
+  else if (hours >= 12 && hours < 15) period = 'দুপুর';
+  else if (hours >= 15 && hours < 18) period = 'বিকাল';
+  else if (hours >= 18 && hours < 21) period = 'সন্ধ্যা';
+  else if (hours >= 21 || hours < 1) period = 'রাত';
+  else period = `গভীর রাত (রাত ${hours}টা)`;
+
+  const displayHour = hours % 12 || 12;
+  const timeStr = `${dayName}, ${period} ${displayHour}:${minutes}`;
+
+  let elapsedSection = '';
+  if (lastMessageTime) {
+    const lastDate = new Date(lastMessageTime);
+    const diffMs = now.getTime() - lastDate.getTime();
+    if (!isNaN(diffMs) && diffMs > 0) {
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffDays >= 1) {
+        elapsedSection = `- পূর্ববর্তী মেসেজ থেকে সময় পার হয়েছে: ${diffDays} দিন (${diffDays === 1 ? 'গতকাল' : `${diffDays} দিন আগে`})। দিন-রাত পার হয়ে সম্পূর্ণ নতুন দিনের আড্ডা শুরু হয়েছে।\n- জরুরি সময়জ্ঞান: আগের আড্ডায় রবিন যদি 'ঘুমাতে যাই' বলে থাকে, তবে সে গত রাতেই ঘুমিয়েছে এবং এখন সম্পূর্ণ নতুন দিন! কখনোই অবান্তরভাবে বলবে না 'তুমি এখনও ঘুমাওনি কেন?' বা 'ঘুমাতে যাওনি?'। বরং নতুন সময়ের বাস্তব কুশল বিনিময় করো ("সারা দিন কেমন কাটলো?", "এখন কী করছো?").`;
+      } else if (diffHours >= 5) {
+        elapsedSection = `- পূর্ববর্তী মেসেজ থেকে সময় পার হয়েছে: প্রায় ${diffHours} ঘণ্টা (একটি বড় সময় পার হয়েছে, দিন/রাতের পরিবর্তন ঘটেছে)।\n- জরুরি সময়জ্ঞান: যদি আগের রাতে সে ঘুমাতে যাওয়ার কথা বলে থাকে এবং এখন সকাল/দুপুর/সন্ধ্যা, তবে সে ইতিমধ্যে ঘুমিয়ে উঠে দিন কাটাচ্ছে। কখনোই বলবে না 'তুমি এখনও ঘুমাওনি?'। নতুন সময় অনুযায়ী কথা বলো।`;
+      } else if (diffHours >= 1) {
+        elapsedSection = `- পূর্ববর্তী মেসেজ থেকে সময় পার হয়েছে: প্রায় ${diffHours} ঘণ্টা।`;
+      } else if (diffMins >= 10) {
+        elapsedSection = `- পূর্ববর্তী মেসেজ থেকে সময় পার হয়েছে: প্রায় ${diffMins} মিনিট।`;
+      } else {
+        elapsedSection = `- পূর্ববর্তী মেসেজ থেকে সময় পার হয়েছে: কিছু মুহূর্ত আগে (চলমান আড্ডা)।`;
+      }
+    }
+  }
+
+  let nightAdvice = '';
+  if (hours >= 23 || hours < 5) {
+    nightAdvice = `\n- রাত অনেক হয়েছে (${period})। রবিনের অভ্যাস হলো রাতে বেশি রাত না জাগা। তাই বেশি কথা টেনে বড় না করে তাকে মিষ্টি ও স্নেহের সাথে সময়মতো ঘুমানোর তাগিদ বা রিমাইন্ডার দাও।`;
+  }
+
+  return `[বাস্তব সময়জ্ঞান ও টাইম-সেন্স]:
+- বর্তমান রিয়েল সময়: ${timeStr}
+${elapsedSection}
+- সময়ের নিয়ম: সকাল হলে সকালের কুশল, দুপুর হলে দুপুরের খাওয়া, সন্ধ্যা হলে সন্ধ্যার আড্ডা এবং গভীর রাতে ঘুমানোর পরামর্শ দাও।${nightAdvice}`;
+}
 
 export async function handleServerChat(
   message: string,
   history: { role: "user" | "model"; parts: { text: string }[] }[],
   mood: string = 'normal',
   memories: Array<{ content: string }> = [],
-  replyTo?: { id?: string; content?: string; role?: 'user' | 'model' }
+  replyTo?: { id?: string; content?: string; role?: 'user' | 'model' },
+  clientTime?: string,
+  lastMessageTime?: string
 ): Promise<string> {
   const baseInstruction = PERSONA_SYSTEM_PROMPTS[mood] || PERSONA_SYSTEM_PROMPTS['normal'];
-  let finalInstruction = baseInstruction + "\n" + UNIVERSAL_HUMAN_DIRECTIVE;
+  const temporalInstruction = getTemporalContext(clientTime, lastMessageTime);
+  let finalInstruction = baseInstruction + "\n" + UNIVERSAL_HUMAN_DIRECTIVE + "\n" + temporalInstruction;
 
   if (memories && memories.length > 0) {
-    const topMemories = memories.slice(0, 3);
-    finalInstruction += `\nরবিনের তথ্য: ` + topMemories.map(m => m.content).join('; ');
+    const topMemories = memories.slice(0, 10).map(m => m.content).filter(Boolean);
+    if (topMemories.length > 0) {
+      finalInstruction += `\n[রবিনের সাথে তোমার পূর্বের স্থায়ী স্মৃতি, প্রতিশ্রুতি ও তার স্বভাব (মনে রেখে কথা বলো)]:\n` + topMemories.map(m => `- ${m}`).join('\n');
+    }
   }
 
   const isPlayfulMood = ['limitless', 'romantic', 'wife', 'bestie'].includes(mood);
@@ -381,14 +441,19 @@ export async function* handleServerChatStream(
   history: { role: "user" | "model"; parts: { text: string }[] }[],
   mood: string = 'normal',
   memories: Array<{ content: string }> = [],
-  replyTo?: { id?: string; content?: string; role?: 'user' | 'model' }
+  replyTo?: { id?: string; content?: string; role?: 'user' | 'model' },
+  clientTime?: string,
+  lastMessageTime?: string
 ): AsyncGenerator<string, void, unknown> {
   const baseInstruction = PERSONA_SYSTEM_PROMPTS[mood] || PERSONA_SYSTEM_PROMPTS['normal'];
-  let finalInstruction = baseInstruction + "\n" + UNIVERSAL_HUMAN_DIRECTIVE;
+  const temporalInstruction = getTemporalContext(clientTime, lastMessageTime);
+  let finalInstruction = baseInstruction + "\n" + UNIVERSAL_HUMAN_DIRECTIVE + "\n" + temporalInstruction;
 
   if (memories && memories.length > 0) {
-    const topMemories = memories.slice(0, 3);
-    finalInstruction += `\nরবিনের তথ্য: ` + topMemories.map(m => m.content).join('; ');
+    const topMemories = memories.slice(0, 10).map(m => m.content).filter(Boolean);
+    if (topMemories.length > 0) {
+      finalInstruction += `\n[রবিনের সাথে তোমার পূর্বের স্থায়ী স্মৃতি, প্রতিশ্রুতি ও তার স্বভাব (মনে রেখে কথা বলো)]:\n` + topMemories.map(m => `- ${m}`).join('\n');
+    }
   }
 
   // Unified central configuration across ALL personas
@@ -619,6 +684,11 @@ export async function handleServerMemoryExtraction(
     return { category: 'fact', content: `রবিনের অভ্যাস: ${habitMatch[0]}`, importance: 3, isGlobal: true };
   }
 
+  const sleepMatch = cleanMsg.match(/(?:বেশি\s*রাত|রাত\s*না\s*জাগ|তাড়াতাড়ি\s*ঘুমা|ঘুমাইতে\s*যাইতে\s*মানা|তাড়াতাড়ি\s*ঘুমাব|রাত\s*জেগে\s*কথা|ঘুমের\s*কথা|ঘুমের\s*রিমাইন্ডার)/i);
+  if (sleepMatch) {
+    return { category: 'preference', content: 'রবিন বেশি রাত না জেগে সময়মতো তাড়াতাড়ি ঘুমাতে চায়। রাত গভীর হলে তাকে ঘুমানোর রিমাইন্ডার দেওয়া আবশ্যক।', importance: 5, isGlobal: true };
+  }
+
   const promiseMatch = cleanMsg.match(/(?:কথা\s*দিলাম|প্রতিশ্রুতি\s*দিলাম)\s*([^,।.!]+)/i);
   if (promiseMatch) {
     return { category: 'promise', content: `রবিনের প্রতিশ্রুতি: ${promiseMatch[1].trim()}`, importance: 5, isGlobal: false };
@@ -741,9 +811,9 @@ export function setupLiveWebSocket(httpServer: http.Server) {
             });
           }
         } else if (payload.type === 'chat_stream') {
-          const { message, history, mood, memories } = payload;
+          const { message, history, mood, memories, replyTo, clientTime, lastMessageTime } = payload;
           try {
-            for await (const chunk of handleServerChatStream(message, history || [], mood || 'normal', memories || [])) {
+            for await (const chunk of handleServerChatStream(message, history || [], mood || 'normal', memories || [], replyTo, clientTime, lastMessageTime)) {
               if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'chunk', text: chunk }));
               }
@@ -814,13 +884,13 @@ async function startServer() {
   // Chat Endpoint (Standard JSON)
   app.post('/api/chat', async (req, res) => {
     try {
-      const { message, history, mood, memories, replyTo } = req.body;
+      const { message, history, mood, memories, replyTo, clientTime, lastMessageTime } = req.body;
       if (!message || typeof message !== 'string') {
         res.status(400).json({ error: 'Message is required' });
         return;
       }
 
-      const reply = await handleServerChat(message, history || [], mood || 'normal', memories || [], replyTo);
+      const reply = await handleServerChat(message, history || [], mood || 'normal', memories || [], replyTo, clientTime, lastMessageTime);
       res.json({ text: reply });
     } catch (err: any) {
       console.error('[API /api/chat error]:', err);
@@ -834,7 +904,7 @@ async function startServer() {
   // Streaming Chat Endpoint (Server-Sent Events)
   app.post('/api/chat/stream', async (req, res) => {
     try {
-      const { message, history, mood, memories, replyTo } = req.body;
+      const { message, history, mood, memories, replyTo, clientTime, lastMessageTime } = req.body;
       if (!message || typeof message !== 'string') {
         res.status(400).json({ error: 'Message is required' });
         return;
@@ -847,7 +917,7 @@ async function startServer() {
         (res as any).flushHeaders();
       }
 
-      for await (const chunk of handleServerChatStream(message, history || [], mood || 'normal', memories || [], replyTo)) {
+      for await (const chunk of handleServerChatStream(message, history || [], mood || 'normal', memories || [], replyTo, clientTime, lastMessageTime)) {
         res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
       }
 
