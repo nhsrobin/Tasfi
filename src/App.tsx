@@ -59,7 +59,7 @@ const getInitialMessage = (moodStr: string = 'normal'): Message => {
   };
 };
 
-const PROFILE_PIC = "/profile.png?v=1.1";
+const PROFILE_PIC = "/icon.png";
 
 const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
   useEffect(() => {
@@ -140,9 +140,9 @@ export default function App() {
     // Force reset if it's an old placeholder or specifically a path that we want to override
     if (!saved || 
         saved.includes('picsum.photos') || 
-        saved === "/icon.png" || 
+        saved.includes('profile.png') ||
         saved === "/public/profile.png" ||
-        saved.startsWith('http') && !saved.includes(window.location.host) && !saved.includes('drive.google.com')) {
+        (saved.startsWith('http') && !saved.includes(window.location.host) && !saved.includes('drive.google.com'))) {
       return PROFILE_PIC;
     }
     return saved;
@@ -1983,7 +1983,7 @@ export default function App() {
                         setDisplayMode('light');
                         setMood('normal');
                         setNickname('তাসফি');
-                        setProfilePic("/profile.png");
+                        setProfilePic("/icon.png");
                       }}
                       className="w-full py-3 px-4 bg-input-bg text-text-muted hover:text-romantic-deep hover:bg-romantic-pink/20 rounded-2xl transition-all text-xs font-bold border border-border-custom flex items-center justify-center gap-2"
                     >

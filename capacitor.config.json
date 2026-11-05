@@ -1,5 +1,5 @@
 {
-  "appId": "com.tasfi.companion",
+  "appId": "com.tasfiwnlabs.tasfi",
   "appName": "Tasfi",
   "webDir": "dist",
   "bundledWebRuntime": false,

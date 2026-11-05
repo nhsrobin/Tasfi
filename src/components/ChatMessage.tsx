@@ -785,13 +785,13 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               )}
               {status === 'seen' && (
                 <img 
-                  src={profilePic || "/profile.png?v=1.1"} 
+                  src={profilePic || "/icon.png"} 
                   alt="seen" 
                   referrerPolicy="no-referrer"
                   className="w-4.5 h-4.5 rounded-full object-cover border border-romantic-pink/30 shadow-sm hover:scale-110 transition-transform duration-250 cursor-pointer" 
                   title="দেখেছে"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = "/profile.png?v=1.1";
+                    (e.target as HTMLImageElement).src = "/icon.png";
                   }}
                 />
               )}
