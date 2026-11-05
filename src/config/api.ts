@@ -8,7 +8,7 @@
  * 1. Render Deployment (tasfi.onrender.com): Uses relative '' for zero-latency local routing.
  * 2. Vercel Deployment (*.vercel.app): Automatically targets https://tasfi.onrender.com
  * 3. Capacitor Native Android/iOS: Automatically targets https://tasfi.onrender.com
- * 4. Local Dev / AI Studio Preview: Uses relative '' for the local backend.
+ * 4. Local Dev / Cloud Preview: Uses relative '' for the local backend.
  * 5. Environment Variable Override: If VITE_API_URL is explicitly set, it takes precedence.
  */
 
@@ -44,7 +44,7 @@ export function getResolvedBaseUrl(): string {
       return '';
     }
 
-    // D. Localhost or AI Studio Dev Environment
+    // D. Localhost or Cloud Dev Environment
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('run.app')) {
       return '';
     }

@@ -2,7 +2,7 @@
  * Tasfi AI - Universal Server Entry Point
  * The backend server logic is fully modularized inside the /server directory.
  * This entry file delegates execution to /server/index.js for compatibility with
- * AI Studio runtime, Docker, Cloud Run, Render, and Vercel/Capacitor setups.
+ * Node, Docker, Cloud Run, Render, and Vercel/Capacitor setups.
  */
 
 import './server/index.js';

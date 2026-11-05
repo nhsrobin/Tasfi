@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Internal build platform metadata & caches
+.aistudio/
+.aistudio
+metadata.json

@@ -1,5 +1,5 @@
 {
-  "name": "react-example",
+  "name": "tasfi-companion",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,6 +13,8 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@capacitor/cli": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
     "@google/genai": "^2.32.0",
     "@supabase/supabase-js": "^2.110.7",
     "@tailwindcss/vite": "^4.1.14",

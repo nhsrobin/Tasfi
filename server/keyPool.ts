@@ -112,7 +112,7 @@ export class ServerKeyPool {
         apiKey: key,
         httpOptions: {
           headers: {
-            'User-Agent': 'aistudio-build',
+            'User-Agent': 'Tasfi-Companion/1.0',
           },
         },
       });
@@ -125,7 +125,7 @@ export class ServerKeyPool {
     if (this.keys.length === 0) {
       const dummy = new GoogleGenAI({
         apiKey: "EMPTY",
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
+        httpOptions: { headers: { 'User-Agent': 'Tasfi-Companion/1.0' } },
       });
       return {
         ai: dummy,
