@@ -143,6 +143,29 @@ const CodeBlock: React.FC<{ language: string; value: string }> = ({ language, va
     </div>
   );
 };
+ 
+// Global voice manager to eliminate sound conflicts and ensure only one message speaks at a time
+let activeGlobalAudio: HTMLAudioElement | null = null;
+let stopActiveGlobalCallback: (() => void) | null = null;
+
+export const stopAllVoicePlayback = () => {
+  if (activeGlobalAudio) {
+    try {
+      activeGlobalAudio.pause();
+      activeGlobalAudio.currentTime = 0;
+    } catch {}
+    activeGlobalAudio = null;
+  }
+  if (stopActiveGlobalCallback) {
+    try {
+      stopActiveGlobalCallback();
+    } catch {}
+    stopActiveGlobalCallback = null;
+  }
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+  }
+};
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({ 
   id, 
@@ -271,52 +294,40 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     };
   }, []);
 
-  const fallbackBrowserSpeech = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(content);
-      utterance.lang = 'bn-BD';
-      utterance.rate = 1.05;
-      utterance.onend = () => setIsPlaying(false);
-      utterance.onerror = () => setIsPlaying(false);
-      window.speechSynthesis.speak(utterance);
-      setIsPlaying(true);
-    } else {
-      setIsPlaying(false);
-    }
-  };
-
   const handleToggleVoice = async (e: React.MouseEvent) => {
     e.stopPropagation();
+
+    // If currently playing this message, pause it
     if (isPlaying) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      stopAllVoicePlayback();
       setIsPlaying(false);
       return;
     }
 
+    // Immediately stop any other voice playing across the entire app (no conflict)
+    stopAllVoicePlayback();
+
+    // If audio is already cached for this message, play it immediately
     if (audioRef.current) {
       try {
+        activeGlobalAudio = audioRef.current;
+        stopActiveGlobalCallback = () => setIsPlaying(false);
         await audioRef.current.play();
         setIsPlaying(true);
         return;
       } catch {
-        fallbackBrowserSpeech();
-        return;
+        audioRef.current = null;
       }
     }
 
     setIsBuffering(true);
     try {
-      // Strip markdown symbols before sending to TTS so it only reads pure human words
+      // Clean stage directions, markdown, and emojis before sending to TTS
       const cleanVoiceText = content
         .replace(/```[\s\S]*?```/g, '')
         .replace(/`([^`]+)`/g, '$1')
-        .replace(/[*_#~>]/g, '')
+        .replace(/\(\s*(?:মুচকি\s*হেসে|হেসে|আবেগভরে|মায়াবী\s*কণ্ঠে|লাজুক\s*মুখে|দীর্ঘশ্বাস\s*ফেলে|একটু\s*থেমে|ফিসফিস\s*করে)[^)]*\)/gu, '')
+        .replace(/[*_#~>`]/g, '')
         .replace(/\s+/g, ' ')
         .trim();
 
@@ -324,19 +335,31 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       if (audioUrl) {
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
-        audio.onended = () => setIsPlaying(false);
-        audio.onerror = (err) => {
-          console.warn("Audio playback notice, using browser speech:", err);
-          fallbackBrowserSpeech();
+        audio.onended = () => {
+          setIsPlaying(false);
+          if (activeGlobalAudio === audio) {
+            activeGlobalAudio = null;
+            stopActiveGlobalCallback = null;
+          }
         };
+        audio.onpause = () => {
+          setIsPlaying(false);
+        };
+        audio.onerror = () => {
+          setIsPlaying(false);
+          audioRef.current = null;
+        };
+
+        activeGlobalAudio = audio;
+        stopActiveGlobalCallback = () => setIsPlaying(false);
         await audio.play();
         setIsPlaying(true);
       } else {
-        fallbackBrowserSpeech();
+        setIsPlaying(false);
       }
     } catch (error) {
-      console.warn("Voice server notice, falling back to speech synthesis:", error);
-      fallbackBrowserSpeech();
+      console.warn("Voice playback notice:", error);
+      setIsPlaying(false);
     } finally {
       setIsBuffering(false);
     }

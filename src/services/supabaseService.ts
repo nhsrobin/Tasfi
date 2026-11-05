@@ -33,17 +33,10 @@ export class SupabaseService {
    * Initializes the Supabase client using stored or environment credentials.
    */
   public init(customUrl?: string, customKey?: string) {
-    const url = customUrl || 
-                localStorage.getItem('tasfi_supabase_url') || 
-                import.meta.env.VITE_SUPABASE_URL || 
-                DEFAULT_SUPABASE_URL;
+    const url = customUrl || DEFAULT_SUPABASE_URL;
+    const anonKey = customKey || DEFAULT_SUPABASE_ANON_KEY;
 
-    const anonKey = customKey || 
-                    localStorage.getItem('tasfi_supabase_anon_key') || 
-                    import.meta.env.VITE_SUPABASE_ANON_KEY || 
-                    DEFAULT_SUPABASE_ANON_KEY;
-
-    if (url && anonKey && url !== 'YOUR_SUPABASE_URL' && anonKey !== 'YOUR_SUPABASE_ANON_KEY') {
+    if (url && anonKey) {
       try {
         this.client = createClient(url, anonKey, {
           auth: {

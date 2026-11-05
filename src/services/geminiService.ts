@@ -1,4 +1,5 @@
 import { TasfiMemory } from "./supabaseService";
+import { getApiUrl, getWebSocketUrl } from "../config/api";
 
 export interface LiveSessionOptions {
   mood?: string;
@@ -22,10 +23,11 @@ export class GeminiService {
     memories: TasfiMemory[] = [],
     replyTo?: { id?: string; content?: string; role?: 'user' | 'model' },
     clientTime?: string,
-    lastMessageTime?: string
+    lastMessageTime?: string,
+    workingSummary?: string
   ): Promise<string> {
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch(getApiUrl("/api/chat"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -38,6 +40,7 @@ export class GeminiService {
           replyTo,
           clientTime,
           lastMessageTime,
+          workingSummary,
         }),
       });
 
@@ -85,10 +88,11 @@ export class GeminiService {
     onChunk?: (textChunk: string) => void,
     replyTo?: { id?: string; content?: string; role?: 'user' | 'model' },
     clientTime?: string,
-    lastMessageTime?: string
+    lastMessageTime?: string,
+    workingSummary?: string
   ): Promise<string> {
     try {
-      const res = await fetch("/api/chat/stream", {
+      const res = await fetch(getApiUrl("/api/chat/stream"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -101,12 +105,13 @@ export class GeminiService {
           replyTo,
           clientTime,
           lastMessageTime,
+          workingSummary,
         }),
       });
 
       if (!res.ok || !res.body) {
         // Fall back to standard server chat
-        return await this.chat(message, history, mood, memories, replyTo, clientTime, lastMessageTime);
+        return await this.chat(message, history, mood, memories, replyTo, clientTime, lastMessageTime, workingSummary);
       }
 
       const reader = res.body.getReader();
@@ -209,7 +214,7 @@ export class GeminiService {
     }
 
     try {
-      const res = await fetch("/api/memory", {
+      const res = await fetch(getApiUrl("/api/memory"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -249,13 +254,34 @@ export class GeminiService {
   }
 
   /**
+   * Generates a 1-sentence rolling episodic summary of ongoing dialogue to keep API tokens minimal
+   */
+  async generateChatSummary(messages: any[]): Promise<string | null> {
+    if (!messages || messages.length < 4) return null;
+    try {
+      const res = await fetch(getApiUrl("/api/summarize"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.summary || null;
+      }
+    } catch (e) {
+      console.warn("Summary generation notice:", e);
+    }
+    return null;
+  }
+
+  /**
    * Voice Generation:
    * Requests server-side TTS audio via `/api/voice`.
    * Server executes with Gemini audio modality and returns a high-fidelity WAV data URL.
    */
   async generateVoice(text: string, role: "user" | "model", mood: string = "normal"): Promise<string | null> {
     try {
-      const res = await fetch("/api/voice", {
+      const res = await fetch(getApiUrl("/api/voice"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -282,8 +308,7 @@ export class GeminiService {
    * Connects to `/api/live` on the server for real-time bidirectional audio/text interaction.
    */
   connectLive(options: LiveSessionOptions = {}) {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/api/live`;
+    const wsUrl = getWebSocketUrl("/api/live");
 
     let ws: WebSocket | null = null;
     try {

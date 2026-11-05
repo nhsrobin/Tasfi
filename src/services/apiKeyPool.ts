@@ -5,6 +5,8 @@
  * real-time cluster health indicators in the client UI.
  */
 
+import { getApiUrl } from "../config/api";
+
 export interface KeyItem {
   key: string;
   alias: string;
@@ -89,7 +91,7 @@ export class ClientApiKeyPoolManager {
    */
   public async rotateToNext(_cooldownCurrent: boolean = false): Promise<void> {
     try {
-      const res = await fetch("/api/keys/rotate", { method: "POST" });
+      const res = await fetch(getApiUrl("/api/keys/rotate"), { method: "POST" });
       if (res.ok) {
         const data = await res.json();
         if (typeof data.activeIndex === "number") {
@@ -122,7 +124,7 @@ export class ClientApiKeyPoolManager {
    */
   public async refreshStatus(): Promise<void> {
     try {
-      const res = await fetch("/api/keys/status");
+      const res = await fetch(getApiUrl("/api/keys/status"));
       if (res.ok) {
         const data = await res.json();
         if (typeof data.activeIndex === "number") {

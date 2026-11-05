@@ -31,6 +31,7 @@ interface Chat {
   isTemporary?: boolean;
   expiresAt?: number;
   mood?: string;
+  summary?: string;
 }
 
 const getInitialMessage = (moodStr: string = 'normal'): Message => {
@@ -1007,7 +1008,8 @@ export default function App() {
         relevantMemories, 
         replyingContext,
         clientTime,
-        lastMessageTime
+        lastMessageTime,
+        activeChat.summary
       );
       
       const modelMessage: Message = {
@@ -1017,11 +1019,13 @@ export default function App() {
         timestamp: new Date(),
       };
 
+      const finalMessages = activeChat.messages.map(m => m.role === 'user' ? { ...m, status: 'seen' as const } : m).concat(modelMessage);
+
       setChats(prev => prev.map(c => 
         c.id === activeChatId 
           ? { 
               ...c, 
-              messages: c.messages.map(m => m.role === 'user' ? { ...m, status: 'seen' as const } : m).concat(modelMessage), 
+              messages: finalMessages, 
               lastUpdated: new Date() 
             } 
           : c
@@ -1042,6 +1046,19 @@ export default function App() {
       }).catch(err => {
         console.warn("Autonomous memory reflection skipped:", err);
       });
+
+      // Rolling Episodic Memory Summary (Non-blocking background update to keep token quota flat)
+      if (finalMessages.length >= 6 && finalMessages.length % 4 === 0) {
+        geminiService.generateChatSummary(finalMessages).then(newSummary => {
+          if (newSummary && newSummary.trim()) {
+            setChats(prev => prev.map(c => 
+              c.id === activeChatId ? { ...c, summary: newSummary.trim() } : c
+            ));
+          }
+        }).catch(err => {
+          console.warn("Episodic summary background notice:", err);
+        });
+      }
 
       // Auto-rename chat from Gemini if it currently has a generic/default title
       const isDefaultTitle = activeChat && (
