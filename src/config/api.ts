@@ -14,6 +14,36 @@
 
 export const CENTRAL_RENDER_BACKEND = "https://tasfi.onrender.com";
 
+export function isCapacitor(): boolean {
+  if (typeof window === 'undefined') return false;
+  const protocol = window.location.protocol;
+  const href = window.location.href;
+  const hostname = window.location.hostname;
+  const port = window.location.port;
+
+  // 1. Injected Capacitor bridge object
+  const cap = (window as any).Capacitor;
+  if (cap) {
+    if (typeof cap.isNativePlatform === 'function' && cap.isNativePlatform()) return true;
+    if (cap.getPlatform && cap.getPlatform() !== 'web') return true;
+    if (cap.platform && cap.platform !== 'web') return true;
+  }
+
+  // 2. Custom protocols in native WebView
+  if (protocol === 'capacitor:' || protocol === 'ionic:' || href.startsWith('capacitor://') || href.startsWith('ionic://')) {
+    return true;
+  }
+
+  // 3. Android WebView localhost scheme without standard dev server port
+  // Capacitor Android WebView serves files from https://localhost or http://localhost with NO port (port === '')
+  // Desktop development on the other hand ALWAYS has a port (e.g. 3000, 5173, etc.)
+  if (hostname === 'localhost' && (!port || port === '' || port === '80' || port === '443')) {
+    return true;
+  }
+
+  return false;
+}
+
 export function getResolvedBaseUrl(): string {
   // 1. Explicit env var override (if user sets VITE_API_URL in .env or dashboard)
   const envUrl = (import.meta.env.VITE_API_URL || '').trim();
@@ -23,15 +53,13 @@ export function getResolvedBaseUrl(): string {
 
   // 2. Client-side Smart Environment Detection
   if (typeof window !== 'undefined' && window.location) {
-    const protocol = window.location.protocol;
-    const hostname = window.location.hostname;
-    const href = window.location.href;
-
-    // A. Capacitor / Ionic Android Native App Environment
-    // Native apps load assets locally from capacitor://localhost or http://localhost
-    if (protocol === 'capacitor:' || protocol === 'ionic:' || href.startsWith('capacitor://')) {
+    // A. Capacitor Native Android/iOS App Environment -> ALWAYS use central Render backend
+    if (isCapacitor()) {
       return CENTRAL_RENDER_BACKEND;
     }
+
+    const hostname = window.location.hostname;
+    const port = window.location.port;
 
     // B. Vercel Web Deployment (*.vercel.app or custom Vercel domain)
     if (hostname.includes('vercel.app')) {
@@ -44,8 +72,11 @@ export function getResolvedBaseUrl(): string {
       return '';
     }
 
-    // D. Localhost or Cloud Dev Environment
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('run.app')) {
+    // D. Localhost dev server (port 3000) or Cloud Dev Environment
+    if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '3000') {
+      return '';
+    }
+    if (hostname.includes('run.app')) {
       return '';
     }
 
