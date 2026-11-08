@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Heart, Sparkles, Menu, Plus, MessageSquare, X, ArrowDown, Search, MoreVertical, Edit2, Trash2, Check, Download, Settings, Moon, Sun, Eye, Smile, Frown, Angry, BookOpen, Clock, Users, HelpCircle, Laugh, Gem, Info, Phone, Mic, Paperclip, PhoneOff, MicOff, Video, VideoOff, Volume2, VolumeX, Minus, Maximize2, Minimize2, Flame, Database, Cloud, Copy, CheckCircle, Brain, Key, RefreshCw } from 'lucide-react';
+import { Send, Heart, Sparkles, Menu, Plus, MessageSquare, X, ArrowDown, Search, MoreVertical, Edit2, Trash2, Check, Download, Settings, Moon, Sun, Eye, Smile, Frown, Angry, BookOpen, Clock, Users, HelpCircle, Laugh, Gem, Info, Phone, Mic, Paperclip, PhoneOff, MicOff, Video, VideoOff, Volume2, VolumeX, Minus, Maximize2, Minimize2, Flame, Database, Cloud, Copy, CheckCircle, Brain, Camera } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { geminiService } from './services/geminiService';
-import { apiKeyPool } from './services/apiKeyPool';
 import { supabaseService, TasfiMemory } from './services/supabaseService';
 import { ChatMessage } from './components/ChatMessage';
 import { ThemeBackground } from './components/ThemeBackground';
 import { ExportModal } from './components/ExportModal';
 import { MemoryVaultModal } from './components/MemoryVaultModal';
+import { ScreenshotStudioModal } from './components/ScreenshotStudioModal';
 
 interface Message {
   id: string;
@@ -184,15 +184,9 @@ export default function App() {
   const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
   const [copiedSql, setCopiedSql] = useState(false);
-  const [, setKeyPoolVersion] = useState(0);
+  const [isScreenshotModalOpen, setIsScreenshotModalOpen] = useState(false);
+  const [screenshotChat, setScreenshotChat] = useState<Chat | null>(null);
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = apiKeyPool.subscribe(() => {
-      setKeyPoolVersion(v => v + 1);
-    });
-    return unsubscribe;
-  }, []);
 
   // Visual viewport height handler for mobile virtual keyboard
   useEffect(() => {
@@ -1196,17 +1190,28 @@ export default function App() {
               <div className="flex gap-2">
                 <button 
                   onClick={createNewChat}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-romantic-deep text-white rounded-xl hover:bg-romantic-hover transition-colors shadow-md font-medium text-sm"
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-romantic-deep text-white rounded-xl hover:bg-romantic-hover transition-colors shadow-md font-medium text-sm cursor-pointer"
                 >
                   <Plus className="w-4 h-4" /> নতুন আলাপ
                 </button>
                 <button 
                   onClick={createTemporaryChat}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-romantic-pink border border-romantic-deep/30 text-romantic-deep rounded-xl hover:bg-romantic-pink/80 transition-colors shadow-sm font-medium text-sm"
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-romantic-pink border border-romantic-deep/30 text-romantic-deep rounded-xl hover:bg-romantic-pink/80 transition-colors shadow-sm font-medium text-sm cursor-pointer"
                 >
                   <Clock className="w-4 h-4" /> টেম্পোরারি
                 </button>
               </div>
+              <button 
+                onClick={() => {
+                  setScreenshotChat(activeChat);
+                  setIsScreenshotModalOpen(true);
+                  setIsSidebarOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-romantic-pink/60 to-romantic-pink/30 border border-romantic-deep/25 text-romantic-deep hover:bg-romantic-deep hover:text-white rounded-xl transition-all font-bold text-xs shadow-xs cursor-pointer group"
+              >
+                <Camera className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                <span>📸 কন্টেন্ট স্ক্রিনশট স্টুডিও</span>
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -1291,6 +1296,17 @@ export default function App() {
                             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-main hover:bg-romantic-pink transition-colors"
                           >
                             <Edit2 className="w-3.5 h-3.5" /> রিনেইম
+                          </button>
+                          <button
+                            onClick={() => {
+                              setScreenshotChat(chat);
+                              setIsScreenshotModalOpen(true);
+                              setMenuOpenChatId(null);
+                              setIsSidebarOpen(false);
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-main hover:bg-romantic-pink transition-colors cursor-pointer"
+                          >
+                            <Camera className="w-3.5 h-3.5 text-romantic-deep" /> স্ক্রিনশট
                           </button>
                           <button
                             onClick={() => exportChat(chat)}
@@ -1408,6 +1424,16 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2">
+            <button 
+              onClick={() => {
+                setScreenshotChat(activeChat);
+                setIsScreenshotModalOpen(true);
+              }}
+              className="p-2 bg-romantic-pink/35 text-romantic-deep hover:bg-romantic-deep hover:text-white hover:scale-105 active:scale-95 transition-all rounded-full flex items-center justify-center border border-romantic-pink/25 shadow-sm cursor-pointer"
+              title="📸 কন্টেন্ট স্ক্রিনশট স্টুডিও"
+            >
+              <Camera className="w-5 h-5 md:w-5.5 md:h-5.5" strokeWidth={2.4} />
+            </button>
             <button 
               onClick={() => setIsCallActive(true)}
               className="p-2 bg-romantic-pink/35 text-romantic-deep hover:bg-romantic-deep hover:text-white hover:scale-105 active:scale-95 transition-all rounded-full flex items-center justify-center border border-romantic-pink/25 shadow-sm cursor-pointer"
@@ -1792,77 +1818,6 @@ export default function App() {
                     </div>
                   </section>
 
-                  {/* Gemini Multi-API Key Cluster (4 Active Keys) */}
-                  <section className="bg-input-bg border border-border-custom rounded-2xl p-4.5 space-y-3.5">
-                    <div className="flex items-center justify-between px-1">
-                      <div className="flex items-center gap-2">
-                        <Key className="w-5 h-5 text-romantic-deep" />
-                        <div>
-                          <h4 className="text-xs font-black text-text-main uppercase tracking-wider">Gemini এপিআই কি ক্লাস্টার</h4>
-                          <p className="text-[10px] text-text-muted">অটো-ব্যালেন্সিং ও ৪-কি ফেইলওভার</p>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 font-bold border border-green-500/20">
-                        {apiKeyPool.getTotalKeysCount()} টি কি সংযুক্ত
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      {apiKeyPool.getKeyStatusList().map((item, idx) => {
-                        const isCurrent = apiKeyPool.getActiveIndex() === idx;
-                        const inCooldown = item.cooldownUntil > Date.now();
-                        return (
-                          <div
-                            key={idx}
-                            className={`p-2.5 rounded-xl border transition-all text-xs flex flex-col justify-between gap-1.5 ${
-                              isCurrent
-                                ? "border-romantic-deep bg-romantic-pink/15 shadow-sm"
-                                : "border-border-custom bg-card-bg opacity-85"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-[11px] flex items-center gap-1.5 text-text-main">
-                                <span className={`w-2 h-2 rounded-full shrink-0 ${inCooldown ? 'bg-amber-500' : isCurrent ? 'bg-green-500 animate-pulse' : 'bg-neutral-400'}`} />
-                                কি #{idx + 1}
-                              </span>
-                              <span className="text-[9px] font-mono font-bold text-text-muted">
-                                {isCurrent ? 'এক্টিভ' : inCooldown ? 'কুলডাউন' : 'স্ট্যান্ডবাই'}
-                              </span>
-                            </div>
-                            <div className="font-mono text-[10px] text-text-muted truncate">
-                              {item.key.slice(0, 8)}...{item.key.slice(-4)}
-                            </div>
-                            <div className="text-[9px] text-text-muted flex justify-between pt-1 border-t border-border-custom/50">
-                              <span>সফল: {item.successCount}</span>
-                              {item.failureCount > 0 ? (
-                                <span className="text-amber-500">লিমিট: {item.failureCount}</span>
-                              ) : (
-                                <span className="text-green-600 dark:text-green-400 font-bold">রেডি</span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1 text-[11px] text-text-muted px-1">
-                      <span className="flex items-center gap-1.5">
-                        <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
-                        <span>একটি কি লিমিট হলে অটো অন্যটিতে শিফট হবে।</span>
-                      </span>
-                      <button
-                        onClick={() => {
-                          apiKeyPool.rotateToNext(false);
-                          setKeyPoolVersion(t => t + 1);
-                        }}
-                        className="px-2.5 py-1 bg-card-bg hover:bg-romantic-pink/20 text-romantic-deep rounded-lg border border-border-custom text-[10px] font-bold flex items-center gap-1.5 cursor-pointer transition-all shrink-0 ml-2"
-                        title="ম্যানুয়ালি পরবর্তী কি-তে সুইচ করুন"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        <span>সুইচ কি</span>
-                      </button>
-                    </div>
-                  </section>
 
                   {/* Supabase & Agentic Memory Integration */}
                   <section className="bg-input-bg border border-border-custom rounded-2xl p-4.5 space-y-4">
@@ -2274,6 +2229,17 @@ export default function App() {
           });
           supabaseService.syncAllChats(chats);
         }}
+      />
+
+      {/* Content Screenshot Studio Modal */}
+      <ScreenshotStudioModal
+        isOpen={isScreenshotModalOpen}
+        onClose={() => setIsScreenshotModalOpen(false)}
+        activeChatTitle={screenshotChat?.title || activeChat.title}
+        initialMessages={screenshotChat?.messages || activeChat.messages}
+        tasfiAvatar={profilePic}
+        tasfiName={nickname}
+        onUpdateTasfiAvatar={(newUrl) => setProfilePic(newUrl)}
       />
     </div>
     </>

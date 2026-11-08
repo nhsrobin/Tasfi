@@ -1,7 +1,9 @@
 {
-  "name": "tasfi-companion",
+  "name": "tasfi-ai",
+  "description": "Tasfi AI - Personal AI Companion by TasfiwnLabs",
+  "author": "TasfiwnLabs",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",

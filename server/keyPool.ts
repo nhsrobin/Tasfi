@@ -1,12 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 
-export const BUILT_IN_API_KEYS: string[] = [
-  "AIzaSyCifR3FhVoFVt5Un4W-2DOAnjcrd6ZEhjc",
-  "AQ.Ab8RN6KZENt6IlaRwcQaD0SPNL3xAsAVYYN8SJo2zC37_z9CFg",
-  "AQ.Ab8RN6L_PytzcSeHP8jo2JC-rsPb_fVtn-X_kxx13bUVL4cobw",
-  "AQ.Ab8RN6L_eqmpheCX0CeYgAepH2RSZRFaOKRgWg1vck6wX6BlRw",
-  "AQ.Ab8RN6IPJxYIkyFYEvS01KOs_humg7Y3A9L-m9TRnpZeth1itA",
-];
+export const BUILT_IN_API_KEYS: string[] = [];
 
 export interface ServerKeyItem {
   key: string;
@@ -51,22 +45,34 @@ export class ServerKeyPool {
   private initPool() {
     const rawKeys: string[] = [];
 
-    // Prioritize environment key if available
-    try {
-      const envKey = process.env.GEMINI_API_KEY;
-      if (
-        envKey &&
-        envKey !== "MY_GEMINI_API_KEY" &&
-        envKey.length > 10 &&
-        !rawKeys.includes(envKey)
-      ) {
-        rawKeys.push(envKey);
+    // Support individual numbered keys: GEMINI_API_KEY_1, GEMINI_API_KEY_2, GEMINI_API_KEY_3, GEMINI_API_KEY_4
+    const numberedKeys = [
+      process.env.GEMINI_API_KEY_1,
+      process.env.GEMINI_API_KEY_2,
+      process.env.GEMINI_API_KEY_3,
+      process.env.GEMINI_API_KEY_4,
+      process.env.GEMINI_API_KEY_5,
+    ];
+    for (const k of numberedKeys) {
+      if (k && k !== "MY_GEMINI_API_KEY" && k.trim().length > 10) {
+        const clean = k.trim();
+        if (!rawKeys.includes(clean)) rawKeys.push(clean);
       }
-    } catch {
-      // ignore
     }
 
-    // Add fallback API keys
+    // Support standard GEMINI_API_KEY and GEMINI_API_KEYS (comma or newline separated)
+    const envVars = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEYS];
+    for (const rawVal of envVars) {
+      if (!rawVal) continue;
+      const splitKeys = rawVal.split(/[,\n\r]+/).map(k => k.trim()).filter(Boolean);
+      for (const k of splitKeys) {
+        if (k && k !== "MY_GEMINI_API_KEY" && k.length > 10 && !rawKeys.includes(k)) {
+          rawKeys.push(k);
+        }
+      }
+    }
+
+    // Add fallback keys from BUILT_IN_API_KEYS (if any)
     for (const key of BUILT_IN_API_KEYS) {
       if (key && !rawKeys.includes(key)) {
         rawKeys.push(key);
@@ -205,6 +211,12 @@ export class ServerKeyPool {
     operation: (ai: GoogleGenAI, keyInfo: { key: string; alias: string; index: number }) => Promise<T>,
     maxAttempts: number = this.keys.length
   ): Promise<T> {
+    if (this.keys.length === 0) {
+      throw new Error(
+        "No Gemini API keys configured. Please add GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc. in Render Dashboard > Environment."
+      );
+    }
+
     let lastError: any = null;
     const attempts = Math.max(1, Math.min(maxAttempts, this.keys.length || 1));
 
