@@ -44,12 +44,12 @@
 
 /* Display Modes */
 .mode-dark, .dark {
-  --bg-color: #0f172a;
+  --bg-color: #0d131f;
   --text-main: #f1f5f9;
   --text-muted: #94a3b8;
-  --card-bg: #1e293b;
-  --border-color: #334155;
-  --input-bg: #0f172a;
+  --card-bg: #121824;
+  --border-color: #1e283d;
+  --input-bg: #0d131f;
   --shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5);
   color-scheme: dark;
 }

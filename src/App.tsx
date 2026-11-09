@@ -132,7 +132,7 @@ export default function App() {
   
   const [mood, setMood] = useState(() => localStorage.getItem('tasfi_mood') || 'normal');
   const [theme, setTheme] = useState(() => localStorage.getItem('tasfi_theme') || 'love');
-  const [displayMode, setDisplayMode] = useState(() => localStorage.getItem('tasfi_displayMode') || 'light');
+  const [displayMode, setDisplayMode] = useState(() => localStorage.getItem('tasfi_displayMode') || 'dark');
   const [nickname, setNickname] = useState(() => localStorage.getItem('tasfi_nickname') || 'তাসফি');
   
   const [profilePic, setProfilePic] = useState(() => {
@@ -1362,19 +1362,20 @@ export default function App() {
 
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
         {/* Header */}
-        {/* Premium Head-turner Header */}
-        <header className="shrink-0 bg-gradient-to-r from-card-bg/95 via-card-bg/90 to-card-bg/95 backdrop-blur-lg border-b border-romantic-pink/20 px-4 md:px-6 py-3 md:py-3.5 flex items-center justify-between sticky top-0 z-30 shadow-[0_4px_20px_0_rgba(253,164,186,0.08)]">
+        {/* Exact Match Header from Screenshot */}
+        <header className="shrink-0 bg-[#121824] border-b border-slate-800/80 px-3.5 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between sticky top-0 z-30 shadow-md">
           <div 
-            className="flex items-center gap-3 md:gap-4 cursor-pointer group"
+            className="flex items-center gap-3 sm:gap-3.5 cursor-pointer group select-none min-w-0"
             onClick={() => setIsProfileModalOpen(true)}
           >
-            <div className="relative">
-              <div className="absolute -inset-0.5 rounded-full bg-gradient-to-tr from-romantic-hover via-romantic-pink to-romantic-deep opacity-75 group-hover:opacity-100 transition-opacity blur-[1px] animate-pulse"></div>
+            {/* Avatar with Glow and Online Indicator */}
+            <div className="relative shrink-0">
+              <div className="absolute -inset-0.5 rounded-full bg-rose-500/25 blur-[3px]"></div>
               <img 
                 src={profilePic} 
                 alt={nickname} 
                 referrerPolicy="no-referrer"
-                className="w-11 h-11 md:w-13 md:h-13 rounded-full object-cover relative z-10 border-2 border-white dark:border-slate-800 shadow-md group-hover:scale-102 transition-transform duration-300"
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover relative z-10 border border-rose-500/30 shadow-[0_0_12px_rgba(225,29,72,0.35)]"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   if (target.src !== window.location.origin + PROFILE_PIC) {
@@ -1382,22 +1383,26 @@ export default function App() {
                   }
                 }}
               />
-              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-card-bg rounded-full shadow-sm z-20 flex items-center justify-center">
-                <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping opacity-75 absolute"></span>
-                <span className="w-1 h-1 bg-white rounded-full"></span>
+              {/* Online indicator: green circle with inner white dot */}
+              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-[#121824] rounded-full shadow-xs z-20 flex items-center justify-center">
+                <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
               </div>
             </div>
+
+            {/* Name, Persona Badge, and Green Tagline */}
             <div className="min-w-0 flex-1">
-              <h1 className="font-extrabold text-text-main text-base md:text-lg flex items-center gap-2 truncate group-hover:text-romantic-deep transition-colors tracking-tight">
-                <span className="truncate">{nickname}</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-white text-base sm:text-lg tracking-tight truncate">
+                  {nickname}
+                </span>
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsMoodMenuOpen(true);
                   }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-romantic-deep text-white text-[9px] md:text-[10px] font-bold rounded-full hover:shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer shrink-0 border border-white/5 shadow-sm"
-                  title="মুড পরিবর্তন করুন"
+                  className="inline-flex items-center gap-1 px-3 py-0.5 bg-[#d91b5c] hover:bg-[#c2144e] text-white text-[11px] sm:text-xs font-bold rounded-full transition-all cursor-pointer shrink-0 shadow-sm active:scale-95"
+                  title="মুড বা পারসোনা পরিবর্তন করুন"
                 >
                   <span>
                     {mood === 'romantic' ? '❤️ প্রিয়তমা' : 
@@ -1406,40 +1411,60 @@ export default function App() {
                      mood === 'friend' ? '😊 বান্ধবী' : 
                      mood === 'stranger' ? '😶 অপরিচিতা' : 
                      mood === 'religious' ? '📖 ধার্মিক' : 
-                     mood === 'limitless' ? '🔥 লিমিটলেস' : '✨ স্বাভাবিক'}
+                     mood === 'limitless' ? '🔥 লিমিটলেস' : '❤️ প্রিয়তমা'}
                   </span>
-                  <span className="text-[7px] opacity-85">▼</span>
+                  <span className="text-[7.5px] opacity-90">▼</span>
                 </button>
-              </h1>
-              <p className="text-[10px] md:text-xs font-semibold opacity-75 mt-0.5">
+              </div>
+
+              {/* Tagline */}
+              <div className="mt-0.5 flex items-center gap-1 text-xs">
                 {activeChat.isTemporary ? (
-                  <span className="flex items-center gap-1 text-orange-500 font-mono">
+                  <span className="flex items-center gap-1 text-orange-400 font-mono text-[11px]">
                     <Clock className="w-3 h-3 animate-pulse" /> টেম্পোরারি চ্যাট ({getRemainingTimeText(activeChat.expiresAt)} পর মুছে যাবে)
                   </span>
                 ) : (
-                  <span className="text-romantic-deep font-sans flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-romantic-hover animate-pulse" /> তোমার প্রিয় সঙ্গিনী
+                  <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11.5px] sm:text-xs">
+                    <Sparkles className="w-3 h-3 text-emerald-400 shrink-0" /> তোমার প্রিয় সঙ্গিনী!
                   </span>
                 )}
-              </p>
+              </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          {/* 3 Circular Dark Buttons on Right: Camera, Phone, Menu */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            {/* 1. Camera Button -> Screenshot Studio */}
+            <button 
+              onClick={() => {
+                setScreenshotChat(activeChat);
+                setIsScreenshotModalOpen(true);
+              }}
+              className="w-10 h-10 rounded-full bg-[#1c2434] hover:bg-[#253044] border border-slate-700/40 flex items-center justify-center text-[#f43f5e] hover:text-rose-400 transition-all cursor-pointer active:scale-95 shadow-sm"
+              title="স্ক্রিনশট স্টুডিও"
+              aria-label="স্ক্রিনশট স্টুডিও"
+            >
+              <Camera className="w-5 h-5 text-[#f43f5e]" strokeWidth={2.2} />
+            </button>
+
+            {/* 2. Phone Call Button */}
             <button 
               onClick={() => setIsCallActive(true)}
-              className="p-2 bg-romantic-pink/35 text-romantic-deep hover:bg-romantic-deep hover:text-white hover:scale-105 active:scale-95 transition-all rounded-full flex items-center justify-center border border-romantic-pink/25 shadow-sm cursor-pointer"
+              className="w-10 h-10 rounded-full bg-[#1c2434] hover:bg-[#253044] border border-slate-700/40 flex items-center justify-center text-[#f43f5e] hover:text-rose-400 transition-all cursor-pointer active:scale-95 shadow-sm"
               title="কল করুন"
+              aria-label="কল করুন"
             >
-              <Phone className="w-5 h-5 md:w-5.5 md:h-5.5" strokeWidth={2.4} />
+              <Phone className="w-5 h-5 text-[#f43f5e]" strokeWidth={2.2} />
             </button>
+
+            {/* 3. Menu Button */}
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="p-2 bg-romantic-pink/35 text-romantic-deep hover:bg-romantic-deep hover:text-white hover:scale-105 active:scale-95 transition-all rounded-full flex items-center justify-center border border-romantic-pink/25 shadow-sm cursor-pointer"
-              aria-label="Open sidebar"
+              className="w-10 h-10 rounded-full bg-[#1c2434] hover:bg-[#253044] border border-slate-700/40 flex items-center justify-center text-[#f43f5e] hover:text-rose-400 transition-all cursor-pointer active:scale-95 shadow-sm"
+              aria-label="আর্কাইভ মেনু"
               title="আর্কাইভ"
             >
-              <Menu className="w-5 h-5 md:w-5.5 md:h-5.5" strokeWidth={2.4} />
+              <Menu className="w-5 h-5 text-[#f43f5e]" strokeWidth={2.2} />
             </button>
           </div>
         </header>

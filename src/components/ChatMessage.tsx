@@ -589,7 +589,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             onClick={handleBubbleClick}
             title="৩-বার দ্রুত ট্যাপ করে এডিট করুন"
             className={cn(
-              "chat-bubble relative px-2.5 py-1.5 rounded-2xl shadow-xs transition-all duration-150 select-text cursor-pointer overflow-visible [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+              "chat-bubble relative px-2.5 pt-1.5 pb-0.5 rounded-2xl shadow-xs transition-all duration-150 select-text cursor-pointer overflow-visible [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
               isUser 
                 ? "bg-romantic-deep text-white rounded-tr-none shadow-romantic-deep/10" 
                 : "bg-card-bg text-text-main rounded-tl-none border border-border-custom shadow-black/5",
@@ -680,7 +680,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             {/* Super Compact Info Bar: Tiny Time + Micro Voice Controller Model */}
             <div 
               className={cn(
-                "text-[9.5px] mt-0.5 opacity-65 flex items-center justify-between gap-2 select-none",
+                "text-[9px] mt-0.5 opacity-65 flex items-center justify-between gap-1.5 select-none leading-none pb-0.5",
                 isUser ? "text-white/80" : "text-text-muted"
               )}
             >

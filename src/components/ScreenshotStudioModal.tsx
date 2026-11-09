@@ -25,6 +25,8 @@ import {
   Camera,
   ImageIcon,
   CheckCheck,
+  Menu,
+  Sparkles,
 } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
@@ -65,11 +67,12 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
   // POV: 'saheb' = Psycho Saheb's phone, 'tasfi' = Tasfi's phone
   const [pov, setPov] = useState<'saheb' | 'tasfi'>('saheb');
 
-  // Participants Information - Defaults to "সাইকো সাহেব"
+  // Participants Information - Defaults to "সাইকো সাহেব" & "তাসফি"
   const [sahebName, setSahebName] = useState('সাইকো সাহেব');
-  const [sahebSubtitle, setSahebSubtitle] = useState('অনলাইন');
+  const [sahebSubtitle, setSahebSubtitle] = useState('বাস্তববাদী লেখক!');
   const [tasfiDisplayName, setTasfiDisplayName] = useState(tasfiName || 'তাসফি');
-  const [tasfiSubtitle, setTasfiSubtitle] = useState('অনলাইন');
+  const [tasfiSubtitle, setTasfiSubtitle] = useState('তোমার প্রিয় সঙ্গিনী!');
+  const [tasfiPersonaBadge, setTasfiPersonaBadge] = useState('❤️ প্রিয়তমা');
 
   const [sahebAvatar, setSahebAvatar] = useState(() => {
     return localStorage.getItem('tasfi_saheb_avatar') || DEFAULT_SAHEB_AVATAR;
@@ -91,8 +94,8 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
   });
   const [batteryLevel, setBatteryLevel] = useState('95');
 
-  // Visual Styling
-  const [frameTheme, setFrameTheme] = useState<'light' | 'dark'>('light');
+  // Visual Styling - Default dark mode matching app theme
+  const [frameTheme, setFrameTheme] = useState<'light' | 'dark'>('dark');
 
   // Selected messages for screenshot
   const [messages, setMessages] = useState<ScreenshotMessage[]>([]);
@@ -511,8 +514,8 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
                     type="text"
                     value={sahebSubtitle}
                     onChange={(e) => setSahebSubtitle(e.target.value)}
-                    className="bg-card-bg border border-border-custom rounded-md px-2 py-0.5 text-[10px] text-text-muted w-full"
-                    placeholder="সাবটাইটেল / অনলাইন"
+                    className="bg-card-bg border border-border-custom rounded-md px-2 py-0.5 text-[10px] text-emerald-500 font-semibold w-full"
+                    placeholder="বাস্তববাদী লেখক!"
                   />
                 </div>
               </div>
@@ -547,19 +550,35 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
                   />
                 </div>
                 <div className="flex-1 min-w-0 space-y-1">
-                  <input
-                    type="text"
-                    value={tasfiDisplayName}
-                    onChange={(e) => setTasfiDisplayName(e.target.value)}
-                    className="bg-card-bg border border-border-custom rounded-md px-2 py-0.5 text-xs font-bold text-text-main w-full"
-                    placeholder="তাসফি"
-                  />
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={tasfiDisplayName}
+                      onChange={(e) => setTasfiDisplayName(e.target.value)}
+                      className="bg-card-bg border border-border-custom rounded-md px-2 py-0.5 text-xs font-bold text-text-main flex-1"
+                      placeholder="তাসফি"
+                    />
+                    <select
+                      value={tasfiPersonaBadge}
+                      onChange={(e) => setTasfiPersonaBadge(e.target.value)}
+                      className="bg-card-bg border border-border-custom rounded-md px-1.5 py-0.5 text-[10px] font-bold text-[#d91b5c] outline-none"
+                      title="পারসোনা ব্যাজ"
+                    >
+                      <option value="❤️ প্রিয়তমা">❤️ প্রিয়তমা</option>
+                      <option value="💎 অর্ধাঙ্গিনী">💎 অর্ধাঙ্গিনী</option>
+                      <option value="😎 বেষ্টি">😎 বেষ্টি</option>
+                      <option value="😊 বান্ধবী">😊 বান্ধবী</option>
+                      <option value="😶 অপরিচিতা">😶 অপরিচিতা</option>
+                      <option value="📖 ধার্মিক">📖 ধার্মিক</option>
+                      <option value="🔥 লিমিটলেস">🔥 লিমিটলেস</option>
+                    </select>
+                  </div>
                   <input
                     type="text"
                     value={tasfiSubtitle}
                     onChange={(e) => setTasfiSubtitle(e.target.value)}
-                    className="bg-card-bg border border-border-custom rounded-md px-2 py-0.5 text-[10px] text-text-muted w-full"
-                    placeholder="সাবটাইটেল / অনলাইন"
+                    className="bg-card-bg border border-border-custom rounded-md px-2 py-0.5 text-[10px] text-emerald-500 font-semibold w-full"
+                    placeholder="তোমার প্রিয় সঙ্গিনী!"
                   />
                 </div>
               </div>
@@ -849,18 +868,21 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
                 </div>
               )}
 
-              {/* Chat Header (Messenger Style) */}
+              {/* Chat Header (Exact Match to Screenshot) */}
               {showHeader && (
                 <div
-                  className={`px-3 py-2 flex items-center justify-between border-b ${
+                  className={`px-3 py-2.5 flex items-center justify-between border-b ${
                     frameTheme === 'dark'
-                      ? 'bg-slate-900/90 border-slate-800'
-                      : 'bg-white/95 border-slate-100'
+                      ? 'bg-[#121824] border-slate-800/80 text-white'
+                      : 'bg-white border-slate-200 text-slate-900'
                   }`}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <ChevronLeft className="w-5 h-5 text-romantic-deep shrink-0 -ml-1 cursor-pointer" />
+                  <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+                    <ChevronLeft className="w-5 h-5 text-rose-500 shrink-0 -ml-1 cursor-pointer" />
+                    
+                    {/* Glowing Avatar */}
                     <div className="relative shrink-0">
+                      <div className="absolute -inset-0.5 rounded-full bg-rose-500/25 blur-[2px]"></div>
                       <img
                         src={headerAvatar}
                         alt={headerName}
@@ -871,24 +893,47 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
                             target.src = '/profile.png';
                           }
                         }}
-                        className="w-9 h-9 rounded-full object-cover border border-border-custom shadow-xs"
+                        className="w-10 h-10 rounded-full object-cover relative z-10 border border-rose-500/30 shadow-[0_0_10px_rgba(225,29,72,0.35)]"
                       />
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white dark:border-slate-900 rounded-full" />
+                      {/* Online dot with white center */}
+                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#121824] rounded-full z-20 flex items-center justify-center">
+                        <span className="w-1 h-1 bg-white rounded-full"></span>
+                      </span>
                     </div>
-                    <div className="min-w-0 leading-tight">
-                      <h4 className="font-bold text-[13px] truncate">
-                        {headerName}
-                      </h4>
-                      <p className="text-[10px] text-green-600 dark:text-green-400 font-medium truncate">
-                        {headerSubtitle}
+
+                    <div className="min-w-0 leading-tight flex-1">
+                      {/* Name + Persona Badge for Tasfi */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="font-bold text-[13px] tracking-tight truncate">
+                          {headerName}
+                        </h4>
+                        {pov === 'saheb' && (
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-[#d91b5c] text-white text-[9px] font-bold rounded-full shadow-xs shrink-0">
+                            {tasfiPersonaBadge}
+                            <span className="text-[6.5px] opacity-80">▼</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Tagline in emerald green */}
+                      <p className="text-[10px] text-emerald-400 font-medium truncate flex items-center gap-1 mt-0.5">
+                        <Sparkles className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                        <span>{headerSubtitle}</span>
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2.5 text-romantic-deep">
-                    <Video className="w-4 h-4 cursor-pointer" />
-                    <Phone className="w-4 h-4 cursor-pointer" />
-                    <MoreVertical className="w-4 h-4 text-text-muted cursor-pointer" />
+                  {/* 3 Dark Circular Buttons (Camera, Phone, Menu) matching screenshot */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-[#1c2434] border border-slate-700/40 flex items-center justify-center text-[#f43f5e] shadow-xs">
+                      <Camera className="w-3.5 h-3.5" strokeWidth={2.2} />
+                    </div>
+                    <div className="w-7 h-7 rounded-full bg-[#1c2434] border border-slate-700/40 flex items-center justify-center text-[#f43f5e] shadow-xs">
+                      <Phone className="w-3.5 h-3.5" strokeWidth={2.2} />
+                    </div>
+                    <div className="w-7 h-7 rounded-full bg-[#1c2434] border border-slate-700/40 flex items-center justify-center text-[#f43f5e] shadow-xs">
+                      <Menu className="w-3.5 h-3.5" strokeWidth={2.2} />
+                    </div>
                   </div>
                 </div>
               )}
@@ -938,9 +983,9 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
                           />
                         )}
 
-                        {/* Compact Messenger Bubble */}
+                        {/* Compact Messenger Bubble with Reduced Bottom Padding */}
                         <div
-                          className={`max-w-[78%] px-3 py-1.5 rounded-[18px] text-[13px] leading-[1.35] relative select-none break-words ${
+                          className={`max-w-[78%] px-2.5 pt-1.5 pb-0.5 rounded-[18px] text-[13px] leading-[1.28] relative select-none break-words ${
                             isOutgoing
                               ? frameTheme === 'dark'
                                 ? 'bg-rose-600 text-white rounded-br-[4px]'
@@ -950,7 +995,7 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
                               : 'bg-slate-100 text-slate-900 rounded-bl-[4px]'
                           }`}
                         >
-                          <div className="markdown-body font-sans select-none break-words text-[13px] leading-[1.35]">
+                          <div className="markdown-body font-sans select-none break-words text-[13px] leading-[1.28] [&>p]:m-0 [&>p]:p-0">
                             <Markdown remarkPlugins={[remarkBreaks]}>
                               {msg.content}
                             </Markdown>
@@ -958,7 +1003,7 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
 
                           {/* Time & Double Checkmarks (Tightly grouped) */}
                           <div
-                            className={`flex items-center justify-end gap-1 mt-0.5 text-[9px] leading-none ${
+                            className={`flex items-center justify-end gap-1 mt-0 text-[8.5px] leading-none pb-0.5 ${
                               isOutgoing
                                 ? 'text-white/80'
                                 : frameTheme === 'dark'
