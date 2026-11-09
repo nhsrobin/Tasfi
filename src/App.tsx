@@ -1013,17 +1013,19 @@ export default function App() {
         timestamp: new Date(),
       };
 
-      const finalMessages = activeChat.messages.map(m => m.role === 'user' ? { ...m, status: 'seen' as const } : m).concat(modelMessage);
+      const finalMessages = [...updatedMessages, modelMessage];
 
-      setChats(prev => prev.map(c => 
-        c.id === activeChatId 
-          ? { 
-              ...c, 
-              messages: finalMessages, 
-              lastUpdated: new Date() 
-            } 
-          : c
-      ));
+      setChats(prev => prev.map(c => {
+        if (c.id !== activeChatId) return c;
+        const currentMessages = c.messages.map(m => m.role === 'user' ? { ...m, status: 'seen' as const } : m);
+        const hasUserMsg = currentMessages.some(m => m.id === userMessage.id);
+        const base = hasUserMsg ? currentMessages : [...currentMessages, userMessage];
+        return {
+          ...c,
+          messages: [...base, modelMessage],
+          lastUpdated: new Date()
+        };
+      }));
 
       // Autonomous Agentic Memory Reflection (Background, Non-blocking, Silent)
       geminiService.extractAgenticMemory(messageText, aiResponse, mood).then(async (newMem) => {
@@ -1424,16 +1426,6 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => {
-                setScreenshotChat(activeChat);
-                setIsScreenshotModalOpen(true);
-              }}
-              className="p-2 bg-romantic-pink/35 text-romantic-deep hover:bg-romantic-deep hover:text-white hover:scale-105 active:scale-95 transition-all rounded-full flex items-center justify-center border border-romantic-pink/25 shadow-sm cursor-pointer"
-              title="📸 কন্টেন্ট স্ক্রিনশট স্টুডিও"
-            >
-              <Camera className="w-5 h-5 md:w-5.5 md:h-5.5" strokeWidth={2.4} />
-            </button>
             <button 
               onClick={() => setIsCallActive(true)}
               className="p-2 bg-romantic-pink/35 text-romantic-deep hover:bg-romantic-deep hover:text-white hover:scale-105 active:scale-95 transition-all rounded-full flex items-center justify-center border border-romantic-pink/25 shadow-sm cursor-pointer"

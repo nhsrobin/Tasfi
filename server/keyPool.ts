@@ -1,5 +1,14 @@
 import { GoogleGenAI } from '@google/genai';
 
+// Attempt to load .env or .env.local if present
+try {
+  if (typeof (process as any).loadEnvFile === 'function') {
+    (process as any).loadEnvFile();
+  }
+} catch {
+  // .env not present or running in environment where env vars are directly injected
+}
+
 export const BUILT_IN_API_KEYS: string[] = [];
 
 export interface ServerKeyItem {
@@ -42,10 +51,22 @@ export class ServerKeyPool {
     this.initPool();
   }
 
+  public refreshPool(): number {
+    this.initPool();
+    return this.keys.length;
+  }
+
+  public hasValidKeys(): boolean {
+    if (this.keys.length === 0) {
+      this.initPool();
+    }
+    return this.keys.length > 0;
+  }
+
   private initPool() {
     const rawKeys: string[] = [];
 
-    // Support individual numbered keys: GEMINI_API_KEY_1, GEMINI_API_KEY_2, GEMINI_API_KEY_3, GEMINI_API_KEY_4
+    // Support numbered keys: GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.
     const numberedKeys = [
       process.env.GEMINI_API_KEY_1,
       process.env.GEMINI_API_KEY_2,
@@ -60,8 +81,15 @@ export class ServerKeyPool {
       }
     }
 
-    // Support standard GEMINI_API_KEY and GEMINI_API_KEYS (comma or newline separated)
-    const envVars = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEYS];
+    // Support standard env vars: GEMINI_API_KEY, GEMINI_API_KEYS, GOOGLE_API_KEY, etc.
+    const envVars = [
+      process.env.GEMINI_API_KEY,
+      process.env.GEMINI_API_KEYS,
+      process.env.GOOGLE_API_KEY,
+      process.env.GOOGLE_GENAI_API_KEY,
+      process.env.API_KEY,
+      process.env.VITE_GEMINI_API_KEY,
+    ];
     for (const rawVal of envVars) {
       if (!rawVal) continue;
       const splitKeys = rawVal.split(/[,\n\r]+/).map(k => k.trim()).filter(Boolean);
@@ -89,7 +117,9 @@ export class ServerKeyPool {
       lastError: null,
     }));
 
-    console.info(`[ServerKeyPool] Initialized with ${this.keys.length} API keys.`);
+    if (this.keys.length > 0) {
+      console.info(`[ServerKeyPool] Active key pool loaded with ${this.keys.length} API key(s).`);
+    }
   }
 
   public getTotalKeysCount(): number {

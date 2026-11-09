@@ -153,8 +153,9 @@ export async function handleServerChat(
 
   const chatConfig: any = {
     systemInstruction: finalInstruction,
-    temperature: isPlayfulMood ? 1.0 : 0.85,
+    temperature: isPlayfulMood ? 0.95 : 0.85,
     topP: 0.95,
+    maxOutputTokens: 250,
     safetySettings: UNRESTRICTED_SAFETY_SETTINGS,
   };
 
@@ -164,8 +165,13 @@ export async function handleServerChat(
     effectiveMessage = `[রিপ্লাই করা মেসেজ (${quotedSender}): "${replyTo.content.slice(0, 160)}"]\n${message}`;
   }
 
+  if (!serverKeyPool.hasValidKeys()) {
+    console.warn("[Server Chat] No API keys configured in environment.");
+    return "উফ জান, কোনো জেমিনি এপিআই কি (GEMINI_API_KEY) পাওয়া যায়নি। দয়া করে রেন্ডার ড্যাশবোর্ডের Environment-এ তোমার API কি বসিয়ে দাও প্লিজ! ❤️";
+  }
+
   const optimizedHistory = (history || []).slice(-6);
-  const candidateModels = ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash"];
+  const candidateModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"];
   const totalKeys = serverKeyPool.getTotalKeysCount();
   const maxKeyAttempts = Math.max(1, Math.min(totalKeys, 4));
 
@@ -234,6 +240,7 @@ export async function* handleServerChatStream(
 
   const chatConfig: any = {
     systemInstruction: finalInstruction,
+    maxOutputTokens: 250,
     safetySettings: UNRESTRICTED_SAFETY_SETTINGS,
   };
 
@@ -243,8 +250,14 @@ export async function* handleServerChatStream(
     effectiveMessage = `[রিপ্লাই করা মেসেজ (${quotedSender}): "${replyTo.content.slice(0, 160)}"]\n${message}`;
   }
 
+  if (!serverKeyPool.hasValidKeys()) {
+    console.warn("[Server Chat Stream] No API keys configured in environment.");
+    yield "উফ জান, কোনো জেমিনি এপিআই কি (GEMINI_API_KEY) পাওয়া যায়নি। দয়া করে রেন্ডার ড্যাশবোর্ডের Environment-এ তোমার API কি বসিয়ে দাও প্লিজ! ❤️";
+    return;
+  }
+
   const optimizedHistory = (history || []).slice(-6);
-  const candidateModels = ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash"];
+  const candidateModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"];
   const totalKeys = serverKeyPool.getTotalKeysCount();
   const maxKeyAttempts = Math.max(1, Math.min(totalKeys, 4));
 
