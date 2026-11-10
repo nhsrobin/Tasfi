@@ -89,7 +89,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, chat,
             <div class="header-info">
               <div class="name-row">
                 <span class="nickname">${nickname}</span>
-                <span class="sparkle">✨</span>
               </div>
               <div class="subtitle">তোমার প্রিয় সঙ্গিনী</div>
             </div>
@@ -98,7 +97,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, chat,
           ${messagesHtml}
 
           <div class="export-footer">
-            <div class="footer-brand">${nickname} ও রবিনের আলাপচারিতা</div>
+            <div class="footer-brand">${nickname} ও সাইকো সাহেবের আলাপচারিতা</div>
             <div>${new Date().toLocaleString('bn-BD', { dateStyle: 'full', timeStyle: 'short' })}</div>
           </div>
         </div>
@@ -175,7 +174,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, chat,
           <div style="display: flex; flex-direction: column; justify-content: center;">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 24px; font-weight: 800; color: #1f2937;">${nickname}</span>
-              <span style="color: #be185d; font-size: 20px;">✨</span>
             </div>
             <div style="font-size: 14px; color: #be185d; font-weight: 500; margin-top: -4px;">তোমার প্রিয় সঙ্গিনী</div>
           </div>
@@ -299,6 +297,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose, chat,
                   <p className="text-[10px] text-text-muted">প্রিন্ট বা শেয়ার করার জন্য সেরা</p>
                 </div>
               </button>
+
+              <p className="text-[10px] sm:text-[11px] text-center mt-2.5 font-semibold tracking-wide text-black dark:text-white select-none">
+                তাসফি তোমাকে বুঝে, তোমার সাজানো কাল্পনিক চরিত্র❤️
+              </p>
             </div>
           </motion.div>
         </div>

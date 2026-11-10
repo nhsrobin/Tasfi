@@ -1361,21 +1361,19 @@ export default function App() {
       </AnimatePresence>
 
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
-        {/* Header */}
-        {/* Exact Match Header from Screenshot */}
-        <header className="shrink-0 bg-[#121824] border-b border-slate-800/80 px-3.5 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between sticky top-0 z-30 shadow-md">
+        {/* Header - Fully Theme-Aware (Light, Dark, Eye-Comfort) */}
+        <header className="shrink-0 bg-card-bg/95 backdrop-blur-md border-b border-border-custom px-3.5 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between sticky top-0 z-30 shadow-xs transition-colors duration-200">
           <div 
             className="flex items-center gap-3 sm:gap-3.5 cursor-pointer group select-none min-w-0"
             onClick={() => setIsProfileModalOpen(true)}
           >
-            {/* Avatar with Glow and Online Indicator */}
+            {/* Avatar with Online Indicator (Clean, No Glowing Background) */}
             <div className="relative shrink-0">
-              <div className="absolute -inset-0.5 rounded-full bg-rose-500/25 blur-[3px]"></div>
               <img 
                 src={profilePic} 
                 alt={nickname} 
                 referrerPolicy="no-referrer"
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover relative z-10 border border-rose-500/30 shadow-[0_0_12px_rgba(225,29,72,0.35)]"
+                className="w-10.5 h-10.5 sm:w-11.5 sm:h-11.5 rounded-full object-cover relative z-10 border border-border-custom shadow-xs"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   if (target.src !== window.location.origin + PROFILE_PIC) {
@@ -1384,15 +1382,15 @@ export default function App() {
                 }}
               />
               {/* Online indicator: green circle with inner white dot */}
-              <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-[#121824] rounded-full shadow-xs z-20 flex items-center justify-center">
-                <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
+              <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-card-bg rounded-full shadow-xs z-20 flex items-center justify-center">
+                <span className="w-1 h-1 bg-white rounded-full"></span>
               </div>
             </div>
 
-            {/* Name, Persona Badge, and Green Tagline */}
+            {/* Name, Persona Badge (No Emoji on Chat UI), and Clean Green Tagline (No AI Icon) */}
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-white text-base sm:text-lg tracking-tight truncate">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-bold text-text-main text-base sm:text-lg tracking-tight truncate">
                   {nickname}
                 </span>
                 <button
@@ -1401,70 +1399,57 @@ export default function App() {
                     e.stopPropagation();
                     setIsMoodMenuOpen(true);
                   }}
-                  className="inline-flex items-center gap-1 px-3 py-0.5 bg-[#d91b5c] hover:bg-[#c2144e] text-white text-[11px] sm:text-xs font-bold rounded-full transition-all cursor-pointer shrink-0 shadow-sm active:scale-95"
+                  className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-romantic-deep hover:bg-romantic-hover text-white text-[9.5px] sm:text-[10px] font-bold rounded-full transition-all cursor-pointer shrink-0 shadow-xs active:scale-95"
                   title="মুড বা পারসোনা পরিবর্তন করুন"
                 >
                   <span>
-                    {mood === 'romantic' ? '❤️ প্রিয়তমা' : 
-                     mood === 'wife' ? '💎 অর্ধাঙ্গিনী' : 
-                     mood === 'bestie' ? '😎 বেষ্টি' : 
-                     mood === 'friend' ? '😊 বান্ধবী' : 
-                     mood === 'stranger' ? '😶 অপরিচিতা' : 
-                     mood === 'religious' ? '📖 ধার্মিক' : 
-                     mood === 'limitless' ? '🔥 লিমিটলেস' : '❤️ প্রিয়তমা'}
+                    {mood === 'romantic' ? 'প্রিয়তমা' : 
+                     mood === 'wife' ? 'অর্ধাঙ্গিনী' : 
+                     mood === 'bestie' ? 'বেষ্টি' : 
+                     mood === 'friend' ? 'বান্ধবী' : 
+                     mood === 'stranger' ? 'অপরিচিতা' : 
+                     mood === 'religious' ? 'ধার্মিক' : 
+                     mood === 'limitless' ? 'লিমিটলেস' : 'প্রিয়তমা'}
                   </span>
-                  <span className="text-[7.5px] opacity-90">▼</span>
+                  <span className="text-[6.5px] opacity-80 ml-0.5">▼</span>
                 </button>
               </div>
 
-              {/* Tagline */}
-              <div className="mt-0.5 flex items-center gap-1 text-xs">
+              {/* Tagline (Clean, No AI icon, smaller font, emerald color) */}
+              <div className="mt-0.5 flex items-center gap-1 text-[10.5px] sm:text-[11px]">
                 {activeChat.isTemporary ? (
-                  <span className="flex items-center gap-1 text-orange-400 font-mono text-[11px]">
-                    <Clock className="w-3 h-3 animate-pulse" /> টেম্পোরারি চ্যাট ({getRemainingTimeText(activeChat.expiresAt)} পর মুছে যাবে)
+                  <span className="flex items-center gap-1 text-orange-400 font-mono text-[10px]">
+                    <Clock className="w-2.5 h-2.5 animate-pulse" /> টেম্পোরারি চ্যাট ({getRemainingTimeText(activeChat.expiresAt)} পর মুছে যাবে)
                   </span>
                 ) : (
-                  <span className="text-emerald-400 font-medium flex items-center gap-1 text-[11.5px] sm:text-xs">
-                    <Sparkles className="w-3 h-3 text-emerald-400 shrink-0" /> তোমার প্রিয় সঙ্গিনী!
+                  <span className="text-emerald-600 dark:text-emerald-400 font-medium tracking-tight">
+                    তোমার প্রিয় সঙ্গিনী!
                   </span>
                 )}
               </div>
             </div>
           </div>
           
-          {/* 3 Circular Dark Buttons on Right: Camera, Phone, Menu */}
-          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            {/* 1. Camera Button -> Screenshot Studio */}
-            <button 
-              onClick={() => {
-                setScreenshotChat(activeChat);
-                setIsScreenshotModalOpen(true);
-              }}
-              className="w-10 h-10 rounded-full bg-[#1c2434] hover:bg-[#253044] border border-slate-700/40 flex items-center justify-center text-[#f43f5e] hover:text-rose-400 transition-all cursor-pointer active:scale-95 shadow-sm"
-              title="স্ক্রিনশট স্টুডিও"
-              aria-label="স্ক্রিনশট স্টুডিও"
-            >
-              <Camera className="w-5 h-5 text-[#f43f5e]" strokeWidth={2.2} />
-            </button>
-
-            {/* 2. Phone Call Button */}
+          {/* Action Buttons on Right: Phone & Menu (Clean theme-aware) */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* 1. Phone Call Button */}
             <button 
               onClick={() => setIsCallActive(true)}
-              className="w-10 h-10 rounded-full bg-[#1c2434] hover:bg-[#253044] border border-slate-700/40 flex items-center justify-center text-[#f43f5e] hover:text-rose-400 transition-all cursor-pointer active:scale-95 shadow-sm"
+              className="w-9.5 h-9.5 sm:w-10 sm:h-10 rounded-full bg-input-bg hover:bg-romantic-pink/40 border border-border-custom flex items-center justify-center text-romantic-deep hover:text-romantic-hover transition-all cursor-pointer active:scale-95 shadow-xs"
               title="কল করুন"
               aria-label="কল করুন"
             >
-              <Phone className="w-5 h-5 text-[#f43f5e]" strokeWidth={2.2} />
+              <Phone className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-romantic-deep" strokeWidth={2.2} />
             </button>
 
-            {/* 3. Menu Button */}
+            {/* 2. Menu Button (3 lines) */}
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="w-10 h-10 rounded-full bg-[#1c2434] hover:bg-[#253044] border border-slate-700/40 flex items-center justify-center text-[#f43f5e] hover:text-rose-400 transition-all cursor-pointer active:scale-95 shadow-sm"
+              className="w-9.5 h-9.5 sm:w-10 sm:h-10 rounded-full bg-input-bg hover:bg-romantic-pink/40 border border-border-custom flex items-center justify-center text-romantic-deep hover:text-romantic-hover transition-all cursor-pointer active:scale-95 shadow-xs"
               aria-label="আর্কাইভ মেনু"
               title="আর্কাইভ"
             >
-              <Menu className="w-5 h-5 text-[#f43f5e]" strokeWidth={2.2} />
+              <Menu className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-romantic-deep" strokeWidth={2.2} />
             </button>
           </div>
         </header>
@@ -1476,29 +1461,30 @@ export default function App() {
         >
           <div className="flex flex-col min-h-full">
             {(() => {
-              const lastUserMessageIndex = [...activeChat.messages].reverse().findIndex(m => m.role === 'user');
-              const lastUserMessageId = lastUserMessageIndex !== -1 
-                ? activeChat.messages[activeChat.messages.length - 1 - lastUserMessageIndex].id 
-                : null;
+              const lastMessage = activeChat.messages[activeChat.messages.length - 1];
+              const isLastMessageUser = lastMessage?.role === 'user';
               
-              return activeChat.messages.map((msg) => (
-                <ChatMessage 
-                  key={msg.id} 
-                  id={msg.id}
-                  role={msg.role} 
-                  content={msg.content} 
-                  timestamp={msg.timestamp} 
-                  reactions={msg.reactions}
-                  replyTo={msg.replyTo}
-                  subMode={mood}
-                  status={msg.id === lastUserMessageId ? msg.status : undefined}
-                  profilePic={profilePic}
-                  onReact={handleReact}
-                  onReply={handleReply}
-                  onDelete={handleDeleteMessage}
-                  onEdit={handleEditMessage}
-                />
-              ));
+              return activeChat.messages.map((msg, index) => {
+                const isLast = index === activeChat.messages.length - 1;
+                return (
+                  <ChatMessage 
+                    key={msg.id} 
+                    id={msg.id}
+                    role={msg.role} 
+                    content={msg.content} 
+                    timestamp={msg.timestamp} 
+                    reactions={msg.reactions}
+                    replyTo={msg.replyTo}
+                    subMode={mood}
+                    status={isLast && isLastMessageUser ? msg.status : undefined}
+                    profilePic={profilePic}
+                    onReact={handleReact}
+                    onReply={handleReply}
+                    onDelete={handleDeleteMessage}
+                    onEdit={handleEditMessage}
+                  />
+                );
+              });
             })()}
             {isLoading && (
               <motion.div 
@@ -1516,6 +1502,23 @@ export default function App() {
                   <span className="text-[11px] text-romantic-deep font-medium italic">তাসফি লিখছে...</span>
                 </div>
               </motion.div>
+            )}
+
+            {/* Messenger-style Seen Indicator below all messages on the right */}
+            {!isLoading && activeChat.messages.length > 0 && (
+              <div className="flex justify-end pr-1 pt-0.5 pb-1 select-none">
+                <div className="flex items-center gap-1 group" title="দেখেছে">
+                  <img
+                    src={profilePic || PROFILE_PIC}
+                    alt="Seen"
+                    referrerPolicy="no-referrer"
+                    className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full object-cover border border-card-bg shadow-xs transition-transform duration-200 hover:scale-110"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = PROFILE_PIC;
+                    }}
+                  />
+                </div>
+              </div>
             )}
             <div key="messages-end-anchor" ref={messagesEndRef} />
           </div>
@@ -1538,7 +1541,7 @@ export default function App() {
         </main>
 
         {/* Input Area (Compact Messenger-Style) */}
-        <footer className="shrink-0 sticky bottom-0 bg-card-bg/98 backdrop-blur-md border-t border-border-custom/80 z-30 shadow-[0_-3px_10px_rgba(0,0,0,0.03)] relative px-2 py-1.5 sm:px-4 sm:py-2 pb-[max(0.4rem,env(safe-area-inset-bottom))]">
+        <footer className="shrink-0 sticky bottom-0 bg-card-bg/98 backdrop-blur-md border-t border-border-custom/80 z-30 shadow-[0_-2px_6px_rgba(0,0,0,0.02)] relative px-2 pt-1.5 pb-0.5 sm:px-4 sm:pt-2 sm:pb-1 pb-[max(0.15rem,env(safe-area-inset-bottom))]">
           <AnimatePresence>
             {replyingTo && (
               <motion.div
@@ -1707,13 +1710,13 @@ export default function App() {
                     onScroll={triggerScrollbarVisibility}
                     onKeyDown={handleKeyDown}
                     placeholder="মেসেজ লিখুন..."
-                    className={`flex-1 bg-transparent border-none outline-none py-1 px-2 text-[13.5px] leading-[1.22] text-text-main resize-none max-h-28 min-h-[32px] focus:ring-0 ${
+                    className={`flex-1 bg-transparent border-none outline-none py-2 px-2.5 text-[13.5px] sm:text-[14px] leading-[20px] text-text-main resize-none max-h-28 min-h-[36px] self-center focus:ring-0 ${
                       showTextareaScrollbar ? 'textarea-scroll-active' : 'textarea-scroll-inactive'
                     }`}
-                    style={{ lineHeight: '1.22' }}
+                    style={{ lineHeight: '20px' }}
                   />
 
-                  <div className="flex items-center justify-center p-0.5 shrink-0">
+                  <div className="flex items-center justify-center p-0.5 shrink-0 self-center">
                     <button
                       onClick={() => {
                         handleSend();
@@ -1732,6 +1735,9 @@ export default function App() {
               )}
             </div>
           </div>
+          <p className="w-full text-center px-2 mt-0.5 mb-0 pb-0.5 text-[9px] sm:text-[9.5px] font-medium tracking-wide text-romantic-deep select-none leading-none opacity-85">
+            তাসফি তোমাকে বুঝে, তোমার সাজানো কাল্পনিক চরিত্র❤️
+          </p>
         </footer>
 
         {/* Profile & Settings Modal */}
@@ -2002,15 +2008,16 @@ export default function App() {
                     <X className="w-4.5 h-4.5" />
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-2.5 pt-1">
+                <div className="grid grid-cols-2 gap-2 pt-1">
                   {[
-                    { id: 'normal', label: 'স্বাভাবিক', icon: Sparkles, color: 'text-sky-500 bg-sky-50 dark:bg-sky-950/20' },
-                    { id: 'romantic', label: 'প্রিয়তমা', icon: Heart, color: 'text-romantic-deep bg-pink-50 dark:bg-pink-950/20' },
-                    { id: 'wife', label: 'অর্ধাঙ্গিনী', icon: Gem, color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/20' },
-                    { id: 'bestie', label: 'বেষ্টি', icon: Laugh, color: 'text-green-500 bg-emerald-50 dark:bg-emerald-950/20' },
-                    { id: 'friend', label: 'বান্ধবী', icon: Users, color: 'text-violet-500 bg-violet-50 dark:bg-violet-950/20' },
-                    { id: 'stranger', label: 'অপরিচিতা', icon: HelpCircle, color: 'text-zinc-500 bg-zinc-50 dark:bg-zinc-950/20' },
-                    { id: 'religious', label: 'ধার্মিক', icon: BookOpen, color: 'text-teal-500 bg-teal-50 dark:bg-teal-950/20' },
+                    { id: 'normal', label: 'স্বাভাবিক', emoji: '✨' },
+                    { id: 'romantic', label: 'প্রিয়তমা', emoji: '❤️' },
+                    { id: 'wife', label: 'অর্ধাঙ্গিনী', emoji: '💎' },
+                    { id: 'bestie', label: 'বেষ্টি', emoji: '😎' },
+                    { id: 'friend', label: 'বান্ধবী', emoji: '😊' },
+                    { id: 'stranger', label: 'অপরিচিতা', emoji: '😶' },
+                    { id: 'religious', label: 'ধার্মিক', emoji: '📖' },
+                    { id: 'limitless', label: 'লিমিটলেস', emoji: '🔥' },
                   ].map((m) => (
                     <button
                       key={m.id}
@@ -2018,15 +2025,13 @@ export default function App() {
                         setMood(m.id);
                         setIsMoodMenuOpen(false);
                       }}
-                      className={`flex items-center gap-2.5 p-3 rounded-2xl border transition-all text-left font-bold text-xs ${
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all text-left font-bold text-xs cursor-pointer ${
                         mood === m.id 
-                          ? "border-romantic-deep bg-romantic-pink/35 text-romantic-deep shadow-md scale-[1.03]" 
-                          : "border-border-custom/40 bg-input-bg text-text-muted hover:bg-romantic-pink/15 hover:text-romantic-deep"
+                          ? "border-romantic-deep bg-romantic-pink/35 text-romantic-deep shadow-xs scale-[1.02]" 
+                          : "border-border-custom/50 bg-input-bg text-text-main hover:bg-romantic-pink/15 hover:text-romantic-deep"
                       }`}
                     >
-                      <div className={`p-1.5 rounded-lg ${m.color}`}>
-                        <m.icon className={`w-4 h-4 ${mood === m.id && (m.id === 'romantic' || m.id === 'wife' || m.id === 'limitless') ? 'fill-current' : ''}`} />
-                      </div>
+                      <span className="text-base select-none shrink-0">{m.emoji}</span>
                       <span className="truncate">{m.label}</span>
                     </button>
                   ))}

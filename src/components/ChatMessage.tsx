@@ -767,9 +767,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             )}
           </AnimatePresence>
 
-          {/* Messenger-style Quick Status Icon Bubble */}
-          {isUser && status && (
-            <div className="flex justify-end w-full mt-1 pr-1 select-none h-4">
+          {/* Messenger-style Quick Status Icon Bubble (Only when sending, sent, or delivered) */}
+          {isUser && (status === 'sending' || status === 'sent' || status === 'delivered') && (
+            <div className="flex justify-end w-full mt-0.5 pr-1 select-none h-3.5">
               {status === 'sending' && (
                 <div className="w-3.5 h-3.5 rounded-full border border-romantic-deep/40 border-t-transparent animate-spin" title="পাঠানো হচ্ছে..." />
               )}
@@ -782,18 +782,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                 <div className="w-3.5 h-3.5 rounded-full bg-romantic-deep/50 flex items-center justify-center shadow-sm" title="ডেলিভারড">
                   <Check className="w-2.5 h-2.5 text-white scale-[0.8]" />
                 </div>
-              )}
-              {status === 'seen' && (
-                <img 
-                  src={profilePic || "/icon.png"} 
-                  alt="seen" 
-                  referrerPolicy="no-referrer"
-                  className="w-4.5 h-4.5 rounded-full object-cover border border-romantic-pink/30 shadow-sm hover:scale-110 transition-transform duration-250 cursor-pointer" 
-                  title="দেখেছে"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = "/icon.png";
-                  }}
-                />
               )}
             </div>
           )}
