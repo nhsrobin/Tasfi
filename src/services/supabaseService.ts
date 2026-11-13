@@ -15,9 +15,47 @@ export interface TasfiMemory {
   updated_at?: string;
 }
 
+export interface ScreenshotSnapshotMessage {
+  id: string;
+  sender: 'saheb' | 'tasfi';
+  content: string;
+  time: string;
+  status?: 'sent' | 'delivered' | 'seen';
+}
+
+export interface ScreenshotSnapshot {
+  pov: 'saheb' | 'tasfi';
+  sahebName: string;
+  sahebSubtitle: string;
+  sahebAvatar: string;
+  tasfiDisplayName: string;
+  tasfiSubtitle: string;
+  tasfiPersonaBadge: string;
+  tasfiAvatar: string;
+  showStatusBar: boolean;
+  showHeader: boolean;
+  showInputBar: boolean;
+  inputDraftText: string;
+  currentTimeText: string;
+  batteryLevel: string;
+  frameTheme: 'light' | 'dark';
+  messages: ScreenshotSnapshotMessage[];
+  selectedIds: string[];
+}
+
+export interface ScreenshotHistoryRecord {
+  id: string;
+  title: string;
+  pov: 'saheb' | 'tasfi';
+  frame_theme: 'light' | 'dark';
+  message_count: number;
+  snapshot: ScreenshotSnapshot;
+  created_at: string;
+}
+
 // User-provided Supabase project credentials as defaults
 export const DEFAULT_SUPABASE_URL = "https://qajptvisklbcvhkyvzns.supabase.co";
-export const DEFAULT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhanB0dmlza2xiY3Zoa3l2em5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIzMDk3OTcsImV4cCI6MjEwNzg4NTc5N30.ftV3gpzKRvJe0srJNgUH12fq9IveJIUBJoL1artYo9U";
+export const DEFAULT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhanB0dmlza2xiY3Zoa3l2em5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIzMDk3OTcsImV4cCI6MjEwNzg4NTc5N30.ftV3gpzKRvJe0srJNgUH12fq9IveJIUBJo9U";
 
 export class SupabaseService {
   private client: SupabaseClient | null = null;
@@ -71,6 +109,7 @@ export class SupabaseService {
   }
 
   private tablesReady: boolean | null = null;
+  private screenshotTableReady: boolean | null = null;
 
   public areTablesReady(): boolean | null {
     return this.tablesReady;
@@ -78,6 +117,10 @@ export class SupabaseService {
 
   public setTablesReady(ready: boolean) {
     this.tablesReady = ready;
+  }
+
+  public isScreenshotTableReady(): boolean | null {
+    return this.screenshotTableReady;
   }
 
   /**
@@ -109,9 +152,9 @@ export class SupabaseService {
   public async testConnection(): Promise<{ 
     connected: boolean; 
     message: string; 
-    tables: { chats: boolean; messages: boolean; memories: boolean } 
+    tables: { chats: boolean; messages: boolean; memories: boolean; screenshotHistory: boolean } 
   }> {
-    const tables = { chats: false, messages: false, memories: false };
+    const tables = { chats: false, messages: false, memories: false, screenshotHistory: false };
     if (!this.isActive() || !this.client) {
       return { connected: false, message: 'Supabase ক্লায়েন্ট ইনিশিয়ালাইজ করা হয়নি।', tables };
     }
@@ -126,14 +169,19 @@ export class SupabaseService {
       const { error: memErr } = await this.client.from('tasfi_memories').select('id').limit(1);
       tables.memories = !memErr;
 
-      const allReady = tables.chats && tables.messages && tables.memories;
-      this.tablesReady = allReady;
+      const { error: ssErr } = await this.client.from('tasfi_screenshot_history').select('id').limit(1);
+      tables.screenshotHistory = !ssErr;
+
+      const coreReady = tables.chats && tables.messages && tables.memories;
+      const allReady = coreReady && tables.screenshotHistory;
+      this.tablesReady = coreReady;
+      this.screenshotTableReady = tables.screenshotHistory;
 
       return {
         connected: true,
         message: allReady 
           ? 'সুপাবেস ডাটাবেজের সব টেবিল সক্রিয় ও প্রস্তুত আছে!' 
-          : 'সুপাবেসে সংযোগ সফল, তবে টেবিলগুলো এখনো SQL Editor-এ তৈরি করা বাকি।',
+          : 'সুপাবেসে সংযোগ সফল, তবে কিছু টেবিল SQL Editor-এ তৈরি করা বাকি।',
         tables
       };
     } catch (err: any) {
@@ -639,6 +687,189 @@ export class SupabaseService {
     return true;
   }
 
+  /* ------------------- SCREENSHOT ARCHIVE OPERATIONS ------------------- */
+
+  private readonly SCREENSHOT_CACHE_KEY = 'tasfi_screenshot_history_cache';
+
+  private readLocalScreenshotHistory(): ScreenshotHistoryRecord[] {
+    try {
+      const raw = localStorage.getItem(this.SCREENSHOT_CACHE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private writeLocalScreenshotHistory(items: ScreenshotHistoryRecord[]) {
+    try {
+      // Keep latest 40 items locally to stay comfortably within localStorage limits
+      localStorage.setItem(this.SCREENSHOT_CACHE_KEY, JSON.stringify(items.slice(0, 40)));
+    } catch (e) {
+      console.warn('Local screenshot history cache notice:', e);
+    }
+  }
+
+  /**
+   * Loads saved screenshot JSON archives from Supabase (with localStorage cache fallback).
+   */
+  async loadScreenshotHistory(): Promise<ScreenshotHistoryRecord[]> {
+    const localItems = this.readLocalScreenshotHistory();
+
+    if (this.isActive() && this.client && this.screenshotTableReady !== false) {
+      try {
+        const { data, error } = await this.client
+          .from('tasfi_screenshot_history')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (error) {
+          if (this.isTableMissingError(error)) {
+            this.screenshotTableReady = false;
+          }
+          console.warn('Notice: tasfi_screenshot_history not ready yet in Supabase:', error.message);
+          return localItems;
+        }
+
+        this.screenshotTableReady = true;
+        if (data) {
+          const remoteRecords: ScreenshotHistoryRecord[] = data.map((row: any) => ({
+            id: row.id,
+            title: row.title,
+            pov: row.pov || row.snapshot?.pov || 'saheb',
+            frame_theme: row.frame_theme || row.snapshot?.frameTheme || 'dark',
+            message_count: Number(row.message_count ?? row.snapshot?.selectedIds?.length ?? 0),
+            snapshot: row.snapshot,
+            created_at: row.created_at,
+          }));
+          this.writeLocalScreenshotHistory(remoteRecords);
+          return remoteRecords;
+        }
+      } catch (err: any) {
+        if (this.isTableMissingError(err)) {
+          this.screenshotTableReady = false;
+        }
+        console.warn('Notice loading screenshot history from Supabase:', err?.message || err);
+      }
+    }
+
+    return localItems;
+  }
+
+  /**
+   * Saves a complete screenshot JSON snapshot to Supabase & localStorage cache.
+   */
+  async saveScreenshotHistory(params: {
+    id?: string;
+    title: string;
+    snapshot: ScreenshotSnapshot;
+  }): Promise<{ record: ScreenshotHistoryRecord; savedToDb: boolean }> {
+    const record: ScreenshotHistoryRecord = {
+      id: params.id || `ss-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      title: params.title,
+      pov: params.snapshot.pov,
+      frame_theme: params.snapshot.frameTheme,
+      message_count: params.snapshot.selectedIds.length,
+      snapshot: params.snapshot,
+      created_at: new Date().toISOString(),
+    };
+
+    // Always update local cache immediately
+    const existing = this.readLocalScreenshotHistory().filter((r) => r.id !== record.id);
+    this.writeLocalScreenshotHistory([record, ...existing]);
+
+    if (this.isActive() && this.client && this.screenshotTableReady !== false) {
+      try {
+        const { error } = await this.client
+          .from('tasfi_screenshot_history')
+          .upsert({
+            id: record.id,
+            title: record.title,
+            pov: record.pov,
+            frame_theme: record.frame_theme,
+            message_count: record.message_count,
+            snapshot: record.snapshot,
+            created_at: record.created_at,
+          });
+
+        if (error) {
+          if (this.isTableMissingError(error)) {
+            this.screenshotTableReady = false;
+          }
+          console.warn('Notice saving screenshot archive to Supabase:', error.message);
+          return { record, savedToDb: false };
+        }
+
+        this.screenshotTableReady = true;
+        return { record, savedToDb: true };
+      } catch (err: any) {
+        if (this.isTableMissingError(err)) {
+          this.screenshotTableReady = false;
+        }
+        console.warn('Notice saving screenshot archive:', err?.message || err);
+        return { record, savedToDb: false };
+      }
+    }
+
+    return { record, savedToDb: false };
+  }
+
+  /**
+   * Deletes a screenshot archive entry from Supabase and local cache.
+   */
+  async deleteScreenshotHistory(id: string): Promise<boolean> {
+    const filtered = this.readLocalScreenshotHistory().filter((r) => r.id !== id);
+    this.writeLocalScreenshotHistory(filtered);
+
+    if (this.isActive() && this.client && this.screenshotTableReady !== false) {
+      try {
+        const { error } = await this.client
+          .from('tasfi_screenshot_history')
+          .delete()
+          .eq('id', id);
+
+        if (error) {
+          if (this.isTableMissingError(error)) {
+            this.screenshotTableReady = false;
+          }
+          console.warn('Notice deleting screenshot archive from Supabase:', error.message);
+          return false;
+        }
+        return true;
+      } catch (err: any) {
+        console.warn('Notice deleting screenshot archive:', err?.message || err);
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Standalone SQL snippet specifically for adding the screenshot archive table.
+   */
+  public getScreenshotHistorySQL(): string {
+    return `-- স্ক্রিনশট আর্কাইভ ও হিস্টরি টেবিল (tasfi_screenshot_history)
+CREATE TABLE IF NOT EXISTS public.tasfi_screenshot_history (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    pov TEXT NOT NULL DEFAULT 'saheb',
+    frame_theme TEXT NOT NULL DEFAULT 'dark',
+    message_count INT NOT NULL DEFAULT 0,
+    snapshot JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasfi_screenshot_history_created ON public.tasfi_screenshot_history(created_at DESC);
+
+ALTER TABLE public.tasfi_screenshot_history ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "tasfi_screenshot_history_access" ON public.tasfi_screenshot_history;
+CREATE POLICY "tasfi_screenshot_history_access" ON public.tasfi_screenshot_history FOR ALL USING (true) WITH CHECK (true);`;
+  }
+
   /**
    * Gets the complete SQL Schema required to set up Supabase.
    */
@@ -681,17 +912,30 @@ CREATE TABLE IF NOT EXISTS public.tasfi_memories (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
--- ৪. ইনডেক্স তৈরি (দ্রুত ফিল্টারিং এবং কোটা সেভিং মেমোরি রিট্রিভালের জন্য)
+-- ৪. স্ক্রিনশট আর্কাইভ ও হিস্টরি টেবিল (tasfi_screenshot_history)
+CREATE TABLE IF NOT EXISTS public.tasfi_screenshot_history (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    pov TEXT NOT NULL DEFAULT 'saheb',
+    frame_theme TEXT NOT NULL DEFAULT 'dark',
+    message_count INT NOT NULL DEFAULT 0,
+    snapshot JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- ৫. ইনডেক্স তৈরি (দ্রুত ফিল্টারিং এবং কোটা সেভিং মেমোরি রিট্রিভালের জন্য)
 CREATE INDEX IF NOT EXISTS idx_tasfi_messages_chat ON public.tasfi_messages(chat_id);
 CREATE INDEX IF NOT EXISTS idx_tasfi_memories_persona ON public.tasfi_memories(persona);
 CREATE INDEX IF NOT EXISTS idx_tasfi_memories_importance ON public.tasfi_memories(importance DESC);
+CREATE INDEX IF NOT EXISTS idx_tasfi_screenshot_history_created ON public.tasfi_screenshot_history(created_at DESC);
 
--- ৫. Row Level Security (RLS) পলিসি অন করা
+-- ৬. Row Level Security (RLS) পলিসি অন করা
 ALTER TABLE public.tasfi_chats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasfi_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasfi_memories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tasfi_screenshot_history ENABLE ROW LEVEL SECURITY;
 
--- ৬. অ্যানোনিমাস কি (Anon Key)-র মাধ্যমে অবাধ অ্যাক্সেস পলিসি তৈরি (ব্যক্তিগত ব্যবহারের জন্য)
+-- ৭. অ্যানোনিমাস কি (Anon Key)-র মাধ্যমে অবাধ অ্যাক্সেস পলিসি তৈরি (ব্যক্তিগত ব্যবহারের জন্য)
 DROP POLICY IF EXISTS "tasfi_chats_access" ON public.tasfi_chats;
 CREATE POLICY "tasfi_chats_access" ON public.tasfi_chats FOR ALL USING (true) WITH CHECK (true);
 
@@ -701,7 +945,10 @@ CREATE POLICY "tasfi_messages_access" ON public.tasfi_messages FOR ALL USING (tr
 DROP POLICY IF EXISTS "tasfi_memories_access" ON public.tasfi_memories;
 CREATE POLICY "tasfi_memories_access" ON public.tasfi_memories FOR ALL USING (true) WITH CHECK (true);
 
--- ৭. প্রাথমিক ভিত্তি স্মৃতি (Initial Foundation Memories) সিড করা
+DROP POLICY IF EXISTS "tasfi_screenshot_history_access" ON public.tasfi_screenshot_history;
+CREATE POLICY "tasfi_screenshot_history_access" ON public.tasfi_screenshot_history FOR ALL USING (true) WITH CHECK (true);
+
+-- ৮. প্রাথমিক ভিত্তি স্মৃতি (Initial Foundation Memories) সিড করা
 INSERT INTO public.tasfi_memories (id, persona, category, content, importance)
 VALUES 
   ('mem-seed-1', 'global', 'fact', 'রবিন একজন ভাবুক লেখক, অত্যন্ত রোমান্টিক এবং মনে-প্রাণে কাব্যিক ব্যক্তি। রবিন তাসফিকে ভালোবাসে।', 5),

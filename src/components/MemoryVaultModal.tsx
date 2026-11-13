@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Brain, Plus, Trash2, Sparkles, Database, Check, Copy, CheckCircle, Shield, Heart, Bookmark, Layers, AlertCircle } from 'lucide-react';
-import { TasfiMemory, supabaseService } from '../services/supabaseService';
+import { X, Brain, Plus, Trash2, Sparkles } from 'lucide-react';
+import { TasfiMemory } from '../services/supabaseService';
 
 interface MemoryVaultModalProps {
   isOpen: boolean;
@@ -10,8 +10,6 @@ interface MemoryVaultModalProps {
   onAddMemory: (memory: Omit<TasfiMemory, 'id'>) => Promise<void>;
   onDeleteMemory: (id: string) => Promise<void>;
   activeMood: string;
-  supabaseActive: boolean;
-  onTablesVerified?: () => void;
 }
 
 const PERSONA_LABELS: Record<string, { label: string; icon: string; color: string }> = {
@@ -43,8 +41,6 @@ export const MemoryVaultModal: React.FC<MemoryVaultModalProps> = ({
   onAddMemory,
   onDeleteMemory,
   activeMood,
-  supabaseActive,
-  onTablesVerified,
 }) => {
   const [selectedPersonaTab, setSelectedPersonaTab] = useState<string>('all');
   const [isAdding, setIsAdding] = useState(false);
@@ -53,9 +49,6 @@ export const MemoryVaultModal: React.FC<MemoryVaultModalProps> = ({
   const [newCategory, setNewCategory] = useState('fact');
   const [newImportance, setNewImportance] = useState(4);
   const [isSaving, setIsSaving] = useState(false);
-  const [copiedSql, setCopiedSql] = useState(false);
-  const [showSqlGuide, setShowSqlGuide] = useState(() => supabaseService.areTablesReady() === false);
-  const [testResult, setTestResult] = useState<{ checked: boolean; msg: string; success: boolean } | null>(null);
 
   if (!isOpen) return null;
 
@@ -84,19 +77,6 @@ export const MemoryVaultModal: React.FC<MemoryVaultModalProps> = ({
     }
   };
 
-  const handleTestDatabase = async () => {
-    setTestResult(null);
-    const result = await supabaseService.testConnection();
-    const allGood = result.connected && result.tables.chats && result.tables.memories;
-    setTestResult({
-      checked: true,
-      msg: result.message,
-      success: allGood,
-    });
-    if (allGood && onTablesVerified) {
-      onTablesVerified();
-    }
-  };
 
   return (
     <AnimatePresence>
@@ -114,109 +94,30 @@ export const MemoryVaultModal: React.FC<MemoryVaultModalProps> = ({
                 <Brain className="w-5 h-5 animate-pulse" />
               </div>
               <div>
-                <h3 className="text-base sm:text-lg font-bold flex items-center gap-2">
-                  <span>তাসফির মেমোরি ভল্ট</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-romantic-pink/20 text-romantic-deep font-semibold">
-                    Agentic Brain
-                  </span>
+                <h3 className="text-base sm:text-lg font-bold">
+                  তাসফির মেমোরি ভল্ট
                 </h3>
                 <p className="text-xs text-text-muted">
-                  পারসোনা ভিত্তিক দীর্ঘমেয়াদী স্মৃতি সংরক্ষণাগার • টোকেন অপ্টিমাইজড
+                  মোট {memories.length} টি স্মৃতি সংরক্ষিত
                 </p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-input-bg rounded-xl text-text-muted hover:text-text-main transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Cloud Sync & Action Bar */}
-          <div className="px-4 py-2.5 bg-input-bg/70 border-b border-border-custom flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-              <span className="font-semibold text-text-main">
-                {supabaseActive ? 'সুপাবেস ক্লাউড কানেক্টেড' : 'লোকাল মেমোরি মোড'}
-              </span>
-              <span className="text-text-muted text-[11px]">
-                ({memories.length} টি স্মৃতি সংরক্ষিত)
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowSqlGuide(!showSqlGuide)}
-                className="px-2.5 py-1 text-[11px] font-semibold text-romantic-deep hover:bg-romantic-pink/20 rounded-lg transition-colors flex items-center gap-1 cursor-pointer border border-border-custom"
-              >
-                <Database className="w-3.5 h-3.5" />
-                <span>SQL সেটআপ কোড</span>
-              </button>
-
               <button
                 onClick={() => setIsAdding(!isAdding)}
-                className="px-3 py-1 text-[11px] font-bold bg-romantic-deep text-white hover:bg-romantic-hover rounded-lg transition-colors shadow-sm flex items-center gap-1 cursor-pointer"
+                className="px-3 py-1.5 text-xs font-bold bg-romantic-deep text-white hover:bg-romantic-hover rounded-xl transition-colors shadow-sm flex items-center gap-1 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>নতুন স্মৃতি যুক্ত করুন</span>
+                <span>নতুন স্মৃতি</span>
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2 hover:bg-input-bg rounded-xl text-text-muted hover:text-text-main transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
           </div>
-
-          {/* SQL Guide Dropdown Banner */}
-          {showSqlGuide && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="p-4 bg-purple-950/20 border-b border-border-custom space-y-3"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-romantic-deep flex items-center gap-1.5">
-                    <Database className="w-4 h-4" />
-                    <span>সুপাবেস SQL Editor-এ রান করার পূর্ণাঙ্গ স্ক্রিপ্ট</span>
-                  </h4>
-                  <p className="text-[11px] text-text-muted">
-                    এটি আপনার সুপাবেস প্রজেক্টে <code className="text-romantic-deep font-mono">tasfi_memories</code> সহ সব টেবিল ও RLS পলিসি তৈরি করে দেবে:
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(supabaseService.getSQLSetupSchema());
-                    setCopiedSql(true);
-                    setTimeout(() => setCopiedSql(false), 2000);
-                  }}
-                  className="px-3 py-1.5 bg-romantic-deep text-white rounded-xl text-xs font-bold flex items-center gap-1.5 hover:bg-romantic-hover cursor-pointer shadow-md shrink-0"
-                >
-                  {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedSql ? 'কপি হয়েছে!' : 'SQL কপি করুন'}</span>
-                </button>
-              </div>
-
-              <div className="relative">
-                <pre className="text-[10px] bg-input-bg text-text-main p-3 rounded-xl overflow-x-auto font-mono max-h-36 border border-border-custom select-all leading-normal">
-                  {supabaseService.getSQLSetupSchema()}
-                </pre>
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <button
-                  onClick={handleTestDatabase}
-                  className="text-[11px] font-semibold text-romantic-deep hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>কানেকশন ও টেবিল স্ট্যাটাস চেক করুন</span>
-                </button>
-                {testResult && (
-                  <span className={`text-[11px] font-semibold ${testResult.success ? 'text-green-500' : 'text-amber-500'}`}>
-                    {testResult.msg}
-                  </span>
-                )}
-              </div>
-            </motion.div>
-          )}
 
           {/* Add Memory Form */}
           {isAdding && (
@@ -346,16 +247,13 @@ export const MemoryVaultModal: React.FC<MemoryVaultModalProps> = ({
           {/* Memory Cards List */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {filteredMemories.length === 0 ? (
-              <div className="text-center py-12 px-4 space-y-3">
-                <div className="w-14 h-14 mx-auto rounded-full bg-input-bg flex items-center justify-center text-text-muted">
-                  <Brain className="w-7 h-7 stroke-1" />
+              <div className="text-center py-12 px-4 space-y-2.5">
+                <div className="w-12 h-12 mx-auto rounded-full bg-input-bg flex items-center justify-center text-text-muted">
+                  <Brain className="w-6 h-6 stroke-1" />
                 </div>
                 <h4 className="text-sm font-bold text-text-main">
-                  এই পারসোনার জন্য এখনো কোনো স্মৃতি লিপিবদ্ধ নেই
+                  এই পারসোনার জন্য এখনো কোনো স্মৃতি নেই
                 </h4>
-                <p className="text-xs text-text-muted max-w-sm mx-auto">
-                  আপনি যখন তাসফির সাথে কথা বলবেন, তাসফি স্বয়ংক্রিয়ভাবে গুরুত্বপূর্ণ মুহূর্তগুলো মনে রাখবে। অথবা উপরের <strong>'নতুন স্মৃতি যুক্ত করুন'</strong> বাটনে ক্লিক করে নিজেই স্মৃতি যোগ করতে পারেন।
-                </p>
               </div>
             ) : (
               filteredMemories.map((mem) => {
@@ -400,24 +298,19 @@ export const MemoryVaultModal: React.FC<MemoryVaultModalProps> = ({
                       {mem.content}
                     </p>
 
-                    <div className="text-[10px] text-text-muted flex items-center justify-between pt-1">
-                      <span>আইডি: <code className="font-mono">{mem.id.slice(0, 14)}</code></span>
-                      {mem.created_at && (
+                    {mem.created_at && (
+                      <div className="text-[10px] text-text-muted flex items-center justify-end pt-0.5">
                         <span>{new Date(mem.created_at).toLocaleDateString('bn-BD')}</span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </motion.div>
                 );
               })
             )}
           </div>
 
-          {/* Footer Info */}
-          <div className="p-3 bg-header-bg/60 border-t border-border-custom text-[11px] text-text-muted flex items-center justify-between">
-            <span className="flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-romantic-deep" />
-              <span>প্রতিটি চ্যাটে এই স্মৃতিগুলো স্বয়ংক্রিয়ভাবে ইনপুট হিসেবে যাবে।</span>
-            </span>
+          {/* Footer */}
+          <div className="p-3 bg-header-bg/60 border-t border-border-custom flex items-center justify-end">
             <button
               onClick={onClose}
               className="px-4 py-1.5 bg-card-bg hover:bg-input-bg border border-border-custom text-text-main rounded-xl text-xs font-bold transition-all cursor-pointer"

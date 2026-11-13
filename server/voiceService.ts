@@ -1,5 +1,5 @@
 import { Modality } from '@google/genai';
-import { serverKeyPool } from './keyPool.js';
+import { serverKeyPool } from './keyPool.ts';
 
 export function createWavBuffer(pcmBuffer: Buffer, sampleRate: number = 24000): Buffer {
   const header = Buffer.alloc(44);

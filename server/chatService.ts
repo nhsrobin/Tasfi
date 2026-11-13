@@ -1,6 +1,6 @@
 import { GenerateContentResponse } from '@google/genai';
-import { serverKeyPool, isQuotaOrRateLimitError } from './keyPool.js';
-import { PERSONA_SYSTEM_PROMPTS, UNIVERSAL_HUMAN_DIRECTIVE, UNRESTRICTED_SAFETY_SETTINGS } from './prompts.js';
+import { serverKeyPool, isQuotaOrRateLimitError } from './keyPool.ts';
+import { PERSONA_SYSTEM_PROMPTS, UNIVERSAL_HUMAN_DIRECTIVE, UNRESTRICTED_SAFETY_SETTINGS } from './prompts.ts';
 
 export function getTemporalContext(clientTime?: string, lastMessageTime?: string): string {
   const now = clientTime ? new Date(clientTime) : new Date();

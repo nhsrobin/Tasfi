@@ -1,10 +1,10 @@
 import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Modality, LiveServerMessage } from '@google/genai';
-import { serverKeyPool } from './keyPool.js';
-import { PERSONA_SYSTEM_PROMPTS, UNIVERSAL_HUMAN_DIRECTIVE } from './prompts.js';
-import { handleServerChatStream } from './chatService.js';
-import { handleServerVoice } from './voiceService.js';
+import { serverKeyPool } from './keyPool.ts';
+import { PERSONA_SYSTEM_PROMPTS, UNIVERSAL_HUMAN_DIRECTIVE } from './prompts.ts';
+import { handleServerChatStream } from './chatService.ts';
+import { handleServerVoice } from './voiceService.ts';
 
 export function setupLiveWebSocket(httpServer: http.Server) {
   const wss = new WebSocketServer({ server: httpServer, path: '/api/live' });

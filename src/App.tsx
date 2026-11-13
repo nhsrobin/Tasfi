@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Heart, Sparkles, Menu, Plus, MessageSquare, X, ArrowDown, Search, MoreVertical, Edit2, Trash2, Check, Download, Settings, Moon, Sun, Eye, Smile, Frown, Angry, BookOpen, Clock, Users, HelpCircle, Laugh, Gem, Info, Phone, Mic, Paperclip, PhoneOff, MicOff, Video, VideoOff, Volume2, VolumeX, Minus, Maximize2, Minimize2, Flame, Database, Cloud, Copy, CheckCircle, Brain, Camera } from 'lucide-react';
+import { Send, Heart, Sparkles, Menu, Plus, MessageSquare, X, ArrowDown, Search, MoreVertical, Edit2, Trash2, Check, Download, Settings, Moon, Sun, Eye, Smile, Frown, Angry, BookOpen, Clock, Users, HelpCircle, Laugh, Gem, Info, Phone, Mic, Paperclip, PhoneOff, MicOff, Video, VideoOff, Volume2, VolumeX, Minus, Maximize2, Minimize2, Flame, Cloud, Brain, Camera, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { geminiService } from './services/geminiService';
 import { supabaseService, TasfiMemory } from './services/supabaseService';
@@ -179,13 +179,12 @@ export default function App() {
   const [showTextareaScrollbar, setShowTextareaScrollbar] = useState(false);
   
   const [isDbLoading, setIsDbLoading] = useState(false);
-  const [supabaseActive, setSupabaseActive] = useState(() => supabaseService.isActive());
-  const [tablesNeedSetup, setTablesNeedSetup] = useState(false);
   const [hasLoadedFromDb, setHasLoadedFromDb] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
-  const [copiedSql, setCopiedSql] = useState(false);
   const [isScreenshotModalOpen, setIsScreenshotModalOpen] = useState(false);
   const [screenshotChat, setScreenshotChat] = useState<Chat | null>(null);
+  const [screenshotInitialTab, setScreenshotInitialTab] = useState<'preview' | 'messages' | 'settings'>('preview');
+  const [screenshotInitialSettingsTab, setScreenshotInitialSettingsTab] = useState<'config' | 'history'>('config');
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
 
   // Visual viewport height handler for mobile virtual keyboard
@@ -232,14 +231,8 @@ export default function App() {
     if (supabaseService.isActive()) {
       setIsDbLoading(true);
 
-      // Probe schema status in background
-      supabaseService.testConnection().then(res => {
-        if (!res.tables.chats || !res.tables.memories) {
-          setTablesNeedSetup(true);
-        } else {
-          setTablesNeedSetup(false);
-        }
-      }).catch(() => {});
+      // Probe schema status silently in background
+      supabaseService.testConnection().catch(() => {});
 
       supabaseService.loadChats()
         .then(dbChats => {
@@ -603,12 +596,8 @@ export default function App() {
       const handler = setTimeout(() => {
         const activeChatToSync = chats.find(c => c.id === activeChatId);
         if (activeChatToSync) {
-          supabaseService.saveChat(activeChatToSync).then(success => {
-            if (!success && supabaseService.areTablesReady() === false) {
-              setTablesNeedSetup(true);
-            }
-          }).catch(err => {
-            console.warn("Supabase chat sync pending table setup:", err?.message || err);
+          supabaseService.saveChat(activeChatToSync).catch(err => {
+            console.warn("Chat sync notice:", err?.message || err);
           });
         }
       }, 1000); // 1 sec debounce
@@ -1206,6 +1195,8 @@ export default function App() {
               <button 
                 onClick={() => {
                   setScreenshotChat(activeChat);
+                  setScreenshotInitialTab('preview');
+                  setScreenshotInitialSettingsTab('config');
                   setIsScreenshotModalOpen(true);
                   setIsSidebarOpen(false);
                 }}
@@ -1302,6 +1293,8 @@ export default function App() {
                           <button
                             onClick={() => {
                               setScreenshotChat(chat);
+                              setScreenshotInitialTab('preview');
+                              setScreenshotInitialSettingsTab('config');
                               setIsScreenshotModalOpen(true);
                               setMenuOpenChatId(null);
                               setIsSidebarOpen(false);
@@ -1842,114 +1835,59 @@ export default function App() {
                   </section>
 
 
-                  {/* Supabase & Agentic Memory Integration */}
-                  <section className="bg-input-bg border border-border-custom rounded-2xl p-4.5 space-y-4">
-                    <div className="flex items-center justify-between px-1">
-                      <div className="flex items-center gap-2">
-                        <Database className="w-5 h-5 text-romantic-deep" />
-                        <h4 className="text-xs font-black text-text-main uppercase tracking-wider">সুপাবেস ও এজেন্টিক মেমোরি</h4>
-                      </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-romantic-pink/20 text-romantic-deep font-bold">
-                        {supabaseActive ? 'অনলাইন সিঙ্ক' : 'অফলাইন'}
-                      </span>
-                    </div>
+                  {/* Memory, Backup & Screenshot History */}
+                  <section className="bg-input-bg border border-border-custom rounded-2xl p-4 space-y-3">
+                    <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider px-1">স্মৃতি ও ব্যাকআপ</h4>
 
-                    <div className="space-y-3.5">
-                      <div className="flex items-center gap-2 bg-green-500/10 text-green-600 dark:text-green-400 p-3 rounded-xl text-xs font-semibold border border-green-500/20">
-                        <CheckCircle className="w-4 h-4 shrink-0 animate-bounce" />
-                        <span>সুপাবেস ডাটাবেজের সাথে সরাসরি কানেক্টেড ({memories.length} টি স্মৃতি সক্রিয়)</span>
-                      </div>
-                      
-                      {tablesNeedSetup && (
-                        <div className="flex items-center justify-between gap-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 p-2.5 rounded-xl text-xs font-semibold border border-amber-500/20">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <Database className="w-4 h-4 shrink-0 text-amber-500" />
-                            <span className="truncate">সুপাবেস টেবিল তৈরি বাকি (SQL কোড রান করুন)</span>
-                          </div>
-                          <button
-                            onClick={() => {
-                              setIsProfileModalOpen(false);
-                              setIsMemoryModalOpen(true);
-                            }}
-                            className="px-2 py-0.5 bg-amber-500 text-black rounded text-[10px] font-bold shrink-0 cursor-pointer"
-                          >
-                            SQL দেখুন
-                          </button>
-                        </div>
-                      )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        onClick={() => {
+                          setIsProfileModalOpen(false);
+                          setIsMemoryModalOpen(true);
+                        }}
+                        className="py-2.5 px-3 bg-purple-600/15 hover:bg-purple-600 text-purple-700 dark:text-purple-300 hover:text-white rounded-xl text-xs font-bold transition-all border border-purple-500/30 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                      >
+                        <Brain className="w-4 h-4" />
+                        <span>মেমোরি ভল্ট</span>
+                      </button>
 
-                      <div className="text-[11px] text-text-muted leading-relaxed">
-                        প্রজেক্ট ইউআরএল: <code className="bg-card-bg px-1.5 py-0.5 rounded font-mono text-romantic-deep">https://qajptvisklbcvhkyvzns.supabase.co</code>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <button
-                          onClick={() => {
-                            setIsProfileModalOpen(false);
-                            setIsMemoryModalOpen(true);
-                          }}
-                          className="py-2.5 px-3 bg-purple-600/15 hover:bg-purple-600 text-purple-700 dark:text-purple-300 hover:text-white rounded-xl text-xs font-bold transition-all border border-purple-500/30 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-                        >
-                          <Brain className="w-4 h-4" />
-                          <span>মেমোরি ভল্ট খুলুন</span>
-                        </button>
-
-                        <button
-                          onClick={async () => {
-                            setSyncStatus('syncing');
-                            try {
-                              const result = await supabaseService.syncAllChats(chats);
-                              setSyncStatus('success');
-                              setTimeout(() => setSyncStatus('idle'), 3000);
-                              const dbChats = await supabaseService.loadChats();
-                              if (dbChats && dbChats.length > 0) {
-                                setChats(dbChats);
-                              }
-                            } catch (err) {
-                              console.error(err);
-                              setSyncStatus('error');
-                              setTimeout(() => setSyncStatus('idle'), 3000);
+                      <button
+                        onClick={async () => {
+                          setSyncStatus('syncing');
+                          try {
+                            await supabaseService.syncAllChats(chats);
+                            setSyncStatus('success');
+                            setTimeout(() => setSyncStatus('idle'), 3000);
+                            const dbChats = await supabaseService.loadChats();
+                            if (dbChats && dbChats.length > 0) {
+                              setChats(dbChats);
                             }
-                          }}
-                          disabled={syncStatus === 'syncing'}
-                          className="py-2.5 px-3 bg-romantic-deep text-white hover:bg-romantic-hover rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-                        >
-                          <Cloud className={`w-3.5 h-3.5 ${syncStatus === 'syncing' ? 'animate-ping' : ''}`} />
-                          <span>{syncStatus === 'syncing' ? 'সিঙ্ক হচ্ছে...' : syncStatus === 'success' ? 'সিঙ্ক সফল!' : 'সব চ্যাট ব্যাকআপ'}</span>
-                        </button>
-                      </div>
+                          } catch (err) {
+                            console.error(err);
+                            setSyncStatus('error');
+                            setTimeout(() => setSyncStatus('idle'), 3000);
+                          }
+                        }}
+                        disabled={syncStatus === 'syncing'}
+                        className="py-2.5 px-3 bg-romantic-deep text-white hover:bg-romantic-hover rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Cloud className={`w-3.5 h-3.5 ${syncStatus === 'syncing' ? 'animate-ping' : ''}`} />
+                        <span>{syncStatus === 'syncing' ? 'ব্যাকআপ হচ্ছে...' : syncStatus === 'success' ? 'ব্যাকআপ সম্পন্ন' : 'চ্যাট ব্যাকআপ'}</span>
+                      </button>
 
-                      <div className="bg-card-bg border border-border-custom rounded-xl p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[11px] font-bold text-romantic-deep flex items-center gap-1">
-                            <Database className="w-3.5 h-3.5" />
-                            <span>সুপাবেস SQL সেটআপ স্ক্রিপ্ট</span>
-                          </p>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(supabaseService.getSQLSetupSchema());
-                              setCopiedSql(true);
-                              setTimeout(() => setCopiedSql(false), 2000);
-                            }}
-                            className="p-1 px-2.5 bg-input-bg hover:bg-romantic-pink/20 text-romantic-deep rounded-md transition-all border border-border-custom flex items-center gap-1 text-[10px] font-bold cursor-pointer"
-                          >
-                            {copiedSql ? (
-                              <>
-                                <CheckCircle className="w-3 h-3 text-green-500" />
-                                <span>কপি হয়েছে!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                <span>SQL কপি করুন</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-text-muted leading-relaxed">
-                          Supabase ড্যাশবোর্ডের <strong>SQL Editor</strong>-এ গিয়ে স্ক্রিপ্টটি পেস্ট করে <strong>Run</strong> করুন।
-                        </p>
-                      </div>
+                      <button
+                        onClick={() => {
+                          setScreenshotChat(activeChat);
+                          setScreenshotInitialTab('settings');
+                          setScreenshotInitialSettingsTab('history');
+                          setIsProfileModalOpen(false);
+                          setIsScreenshotModalOpen(true);
+                        }}
+                        className="sm:col-span-2 py-2.5 px-3 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-700 dark:text-indigo-300 hover:text-white rounded-xl text-xs font-bold transition-all border border-indigo-500/30 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                      >
+                        <History className="w-4 h-4" />
+                        <span>স্ক্রিনশট হিস্টরি</span>
+                      </button>
                     </div>
                   </section>
 
@@ -2243,14 +2181,6 @@ export default function App() {
         onAddMemory={handleAddMemory}
         onDeleteMemory={handleDeleteMemory}
         activeMood={mood}
-        supabaseActive={supabaseActive}
-        onTablesVerified={() => {
-          setTablesNeedSetup(false);
-          supabaseService.loadMemories().then(m => {
-            if (m && m.length > 0) setMemories(m);
-          });
-          supabaseService.syncAllChats(chats);
-        }}
       />
 
       {/* Content Screenshot Studio Modal */}
@@ -2262,6 +2192,8 @@ export default function App() {
         tasfiAvatar={profilePic}
         tasfiName={nickname}
         onUpdateTasfiAvatar={(newUrl) => setProfilePic(newUrl)}
+        initialTab={screenshotInitialTab}
+        initialSettingsTab={screenshotInitialSettingsTab}
       />
     </div>
     </>

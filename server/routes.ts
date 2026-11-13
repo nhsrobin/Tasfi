@@ -1,8 +1,8 @@
-import { Router, Request, Response } from 'express';
-import { handleServerChat, handleServerChatStream, handleServerSummarize } from './chatService.js';
-import { handleServerVoice } from './voiceService.js';
-import { handleServerMemoryExtraction } from './memoryService.js';
-import { serverKeyPool } from './keyPool.js';
+import { Router, type Request, type Response } from 'express';
+import { handleServerChat, handleServerChatStream, handleServerSummarize } from './chatService.ts';
+import { handleServerVoice } from './voiceService.ts';
+import { handleServerMemoryExtraction } from './memoryService.ts';
+import { serverKeyPool } from './keyPool.ts';
 
 export const apiRouter = Router();
 

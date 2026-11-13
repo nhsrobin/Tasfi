@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { toPng, toBlob } from 'html-to-image';
 import {
   X,
@@ -13,8 +13,6 @@ import {
   ArrowDown,
   Edit2,
   Phone,
-  Video,
-  MoreVertical,
   ChevronLeft,
   Smile,
   Paperclip,
@@ -27,9 +25,19 @@ import {
   CheckCheck,
   Menu,
   MessageSquare,
+  Clock,
+  History,
+  RotateCcw,
+  RefreshCw,
+  FileJson,
 } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
+import {
+  supabaseService,
+  ScreenshotHistoryRecord,
+  ScreenshotSnapshot,
+} from '../services/supabaseService';
 
 export interface ScreenshotMessage {
   id: string;
@@ -52,6 +60,8 @@ interface ScreenshotStudioModalProps {
   tasfiAvatar: string;
   tasfiName?: string;
   onUpdateTasfiAvatar?: (newUrl: string) => void;
+  initialTab?: 'preview' | 'messages' | 'settings';
+  initialSettingsTab?: 'config' | 'history';
 }
 
 // Automatic profile picture for Psycho Saheb
@@ -60,9 +70,12 @@ const DEFAULT_SAHEB_AVATAR = '/psychosaheb.png';
 export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
   isOpen,
   onClose,
+  activeChatTitle,
   initialMessages = [],
   tasfiAvatar,
   tasfiName = 'তাসফি',
+  initialTab = 'preview',
+  initialSettingsTab = 'config',
 }) => {
   // POV: 'saheb' = Psycho Saheb's phone, 'tasfi' = Tasfi's phone
   const [pov, setPov] = useState<'saheb' | 'tasfi'>('saheb');
@@ -109,21 +122,50 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
   // Editing / adding new message state
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
+  const [editingTime, setEditingTime] = useState('');
   const [newMsgSender, setNewMsgSender] = useState<'saheb' | 'tasfi'>('saheb');
   const [newMsgText, setNewMsgText] = useState('');
+  const [newMsgTime, setNewMsgTime] = useState('');
 
-  // UI status
+  // UI & Archive History status
   const [isExporting, setIsExporting] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'preview' | 'messages' | 'settings'>('preview');
+  const [activeTab, setActiveTab] = useState<'preview' | 'messages' | 'settings'>(initialTab);
+  const [settingsSubTab, setSettingsSubTab] = useState<'config' | 'history'>(initialSettingsTab);
+  const [historyList, setHistoryList] = useState<ScreenshotHistoryRecord[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [archiveNotice, setArchiveNotice] = useState<string | null>(null);
 
   const previewRef = useRef<HTMLDivElement>(null);
   const sahebFileInputRef = useRef<HTMLInputElement>(null);
   const tasfiFileInputRef = useRef<HTMLInputElement>(null);
+  const wasOpenRef = useRef(false);
 
-  // Initialize messages from chat history when opened
+  const fetchHistory = useCallback(async () => {
+    setIsHistoryLoading(true);
+    try {
+      const records = await supabaseService.loadScreenshotHistory();
+      setHistoryList(records);
+    } catch (err) {
+      console.warn('Could not load screenshot history:', err);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }, []);
+
+  // Initialize messages & fetch history only when modal transitions open
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      wasOpenRef.current = false;
+      return;
+    }
+
+    if (wasOpenRef.current) return;
+    wasOpenRef.current = true;
+
+    setActiveTab(initialTab);
+    setSettingsSubTab(initialSettingsTab);
+    fetchHistory();
 
     if (initialMessages && initialMessages.length > 0) {
       const converted: ScreenshotMessage[] = initialMessages.map((m, idx) => {
@@ -190,7 +232,7 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
       setMessages(samples);
       setSelectedIds(new Set(samples.map((s) => s.id)));
     }
-  }, [isOpen, initialMessages]);
+  }, [isOpen, initialMessages, initialTab, initialSettingsTab, fetchHistory]);
 
   useEffect(() => {
     setLocalTasfiAvatar(tasfiAvatar);
@@ -252,12 +294,13 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
       id: `custom-${Date.now()}`,
       sender: newMsgSender,
       content: newMsgText.trim(),
-      time: currentTimeText,
+      time: newMsgTime.trim() || currentTimeText,
       status: 'seen',
     };
     setMessages((prev) => [...prev, newMsg]);
     setSelectedIds((prev) => new Set(prev).add(newMsg.id));
     setNewMsgText('');
+    setNewMsgTime('');
   };
 
   // Delete message
@@ -282,17 +325,70 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
     setMessages(updated);
   };
 
-  // Save edited message
+  // Save edited message (both content and timestamp)
   const handleSaveEdit = (id: string) => {
     setMessages((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, content: editingText } : m))
+      prev.map((m) =>
+        m.id === id
+          ? {
+              ...m,
+              content: editingText,
+              time: editingTime.trim() || m.time,
+            }
+          : m
+      )
     );
     setEditingMsgId(null);
     setEditingText('');
+    setEditingTime('');
   };
 
-  // Export Screenshot (Download as PNG via html-to-image)
-  const handleDownloadImage = async () => {
+  // Build complete JSON snapshot of current screenshot state
+  const buildCurrentSnapshot = (): ScreenshotSnapshot => ({
+    pov,
+    sahebName,
+    sahebSubtitle,
+    sahebAvatar,
+    tasfiDisplayName,
+    tasfiSubtitle,
+    tasfiPersonaBadge,
+    tasfiAvatar: localTasfiAvatar,
+    showStatusBar,
+    showHeader,
+    showInputBar,
+    inputDraftText,
+    currentTimeText,
+    batteryLevel,
+    frameTheme,
+    messages: messages.map((m) => ({ ...m })),
+    selectedIds: Array.from(selectedIds),
+  });
+
+  // Restore studio state from a saved JSON snapshot
+  const applySnapshot = (snapshot: ScreenshotSnapshot) => {
+    if (!snapshot) return;
+    setPov(snapshot.pov || 'saheb');
+    setSahebName(snapshot.sahebName || 'সাইকো সাহেব');
+    setSahebSubtitle(snapshot.sahebSubtitle || 'বাস্তববাদী লেখক!');
+    if (snapshot.sahebAvatar) setSahebAvatar(snapshot.sahebAvatar);
+    setTasfiDisplayName(snapshot.tasfiDisplayName || 'তাসফি');
+    setTasfiSubtitle(snapshot.tasfiSubtitle || 'তোমার প্রিয় সঙ্গিনী!');
+    setTasfiPersonaBadge(snapshot.tasfiPersonaBadge || '❤️ প্রিয়তমা');
+    if (snapshot.tasfiAvatar) setLocalTasfiAvatar(snapshot.tasfiAvatar);
+    setShowStatusBar(snapshot.showStatusBar ?? true);
+    setShowHeader(snapshot.showHeader ?? true);
+    setShowInputBar(snapshot.showInputBar ?? true);
+    setInputDraftText(snapshot.inputDraftText || '');
+    if (snapshot.currentTimeText) setCurrentTimeText(snapshot.currentTimeText);
+    if (snapshot.batteryLevel) setBatteryLevel(snapshot.batteryLevel);
+    setFrameTheme(snapshot.frameTheme || 'dark');
+    setMessages(Array.isArray(snapshot.messages) ? snapshot.messages : []);
+    setSelectedIds(new Set(Array.isArray(snapshot.selectedIds) ? snapshot.selectedIds : []));
+    setEditingMsgId(null);
+  };
+
+  // Export Screenshot (Download as PNG via html-to-image + auto-save JSON to DB)
+  const handleDownloadImage = async (skipSaveArchive = false) => {
     if (!previewRef.current) return;
     try {
       setIsExporting(true);
@@ -308,11 +404,71 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
       link.download = `tasfi_screenshot_${pov}_${Date.now()}.png`;
       link.href = dataUrl;
       link.click();
+
+      if (!skipSaveArchive) {
+        const snapshot = buildCurrentSnapshot();
+        const activeList = messages.filter((m) => selectedIds.has(m.id));
+        const firstSnippet = activeList[0]?.content?.trim() || '';
+        const cleanTitle = firstSnippet
+          ? firstSnippet.slice(0, 42) + (firstSnippet.length > 42 ? '...' : '')
+          : activeChatTitle || `${pov === 'saheb' ? tasfiDisplayName : sahebName} (${activeList.length} মেসেজ)`;
+
+        await supabaseService.saveScreenshotHistory({
+          title: cleanTitle,
+          snapshot,
+        }).then(({ record }) => {
+          setHistoryList((prev) => [record, ...prev.filter((r) => r.id !== record.id)]);
+          setArchiveNotice('আর্কাইভে সেভ হয়েছে');
+          setTimeout(() => setArchiveNotice(null), 3000);
+        });
+      }
     } catch (err) {
       console.error('Screenshot download error:', err);
     } finally {
       setIsExporting(false);
     }
+  };
+
+  // Restore an archive item into Preview
+  const handleRestorePreview = (item: ScreenshotHistoryRecord) => {
+    applySnapshot(item.snapshot);
+    setActiveTab('preview');
+    setArchiveNotice('আর্কাইভ থেকে প্রিভিউ রিস্টোর করা হয়েছে');
+    setTimeout(() => setArchiveNotice(null), 2500);
+  };
+
+  // Restore and immediately download PNG from an archive item (no duplicate history entry)
+  const handleDownloadFromHistory = async (item: ScreenshotHistoryRecord) => {
+    applySnapshot(item.snapshot);
+    setActiveTab('preview');
+    // Wait for React state flush + layout paint before capturing PNG
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(resolve, 120);
+        });
+      });
+    });
+    await handleDownloadImage(true);
+  };
+
+  // Export raw JSON file from archive item
+  const handleDownloadSnapshotJson = (item: ScreenshotHistoryRecord) => {
+    const blob = new Blob([JSON.stringify(item.snapshot, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tasfi_screenshot_${item.id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Delete an item from history
+  const handleDeleteHistoryItem = async (id: string) => {
+    await supabaseService.deleteScreenshotHistory(id);
+    setHistoryList((prev) => prev.filter((item) => item.id !== id));
   };
 
   // Copy Screenshot directly to Clipboard
@@ -384,6 +540,12 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {archiveNotice && (
+            <span className="hidden lg:inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold">
+              <Check className="w-3 h-3" /> {archiveNotice}
+            </span>
+          )}
+
           <button
             onClick={handleCopyImage}
             disabled={isExporting || displayedMessages.length === 0}
@@ -394,7 +556,7 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
           </button>
 
           <button
-            onClick={handleDownloadImage}
+            onClick={() => handleDownloadImage(false)}
             disabled={isExporting || displayedMessages.length === 0}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-romantic-deep hover:bg-romantic-hover text-white text-xs font-bold transition-all shadow-xs active:scale-95 disabled:opacity-50 cursor-pointer"
           >
@@ -487,9 +649,151 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
               </button>
             </div>
 
-            {/* TAB 1: SETTINGS TAB (Only active when Settings is selected) */}
+            {/* TAB 1: SETTINGS TAB (Configuration & History Archive under Settings) */}
             {activeTab === 'settings' ? (
-              <div className="space-y-4 animate-fade-in">
+              <div className="space-y-3.5 animate-fade-in">
+                {/* Sub-tabs under Settings: কনফিগারেশন | হিস্টরি */}
+                <div className="flex bg-input-bg p-1 rounded-xl border border-border-custom">
+                  <button
+                    type="button"
+                    onClick={() => setSettingsSubTab('config')}
+                    className={`flex-1 py-1.5 px-2.5 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      settingsSubTab === 'config'
+                        ? 'bg-card-bg text-romantic-deep shadow-xs border border-border-custom/60'
+                        : 'text-text-muted hover:text-text-main'
+                    }`}
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>কনফিগারেশন</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettingsSubTab('history');
+                      fetchHistory();
+                    }}
+                    className={`flex-1 py-1.5 px-2.5 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      settingsSubTab === 'history'
+                        ? 'bg-card-bg text-romantic-deep shadow-xs border border-border-custom/60'
+                        : 'text-text-muted hover:text-text-main'
+                    }`}
+                  >
+                    <History className="w-3.5 h-3.5" />
+                    <span>হিস্টরি ({historyList.length})</span>
+                  </button>
+                </div>
+
+                {settingsSubTab === 'history' ? (
+                  <div className="space-y-3 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-text-muted">
+                        সংরক্ষিত স্ক্রিনশট আর্কাইভ ({historyList.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={fetchHistory}
+                        disabled={isHistoryLoading}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-border-custom bg-input-bg hover:bg-romantic-pink/20 text-[10px] font-bold text-text-main transition-all cursor-pointer disabled:opacity-50"
+                        title="রিফ্রেশ করুন"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${isHistoryLoading ? 'animate-spin' : ''}`} />
+                        <span>রিফ্রেশ</span>
+                      </button>
+                    </div>
+
+                    {isHistoryLoading && historyList.length === 0 ? (
+                      <div className="py-10 text-center text-xs text-text-muted">
+                        আর্কাইভ লোড হচ্ছে...
+                      </div>
+                    ) : historyList.length === 0 ? (
+                      <div className="py-10 px-4 text-center bg-input-bg/50 border border-border-custom rounded-xl space-y-1.5">
+                        <History className="w-6 h-6 text-text-muted mx-auto opacity-50" />
+                        <p className="text-xs font-semibold text-text-main">
+                          কোনো সংরক্ষিত আর্কাইভ নেই
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+                        {historyList.map((item) => {
+                          const savedDate = new Date(item.created_at);
+                          const dateText = isNaN(savedDate.getTime())
+                            ? ''
+                            : savedDate.toLocaleString('bn-BD', {
+                                day: 'numeric',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              });
+
+                          return (
+                            <div
+                              key={item.id}
+                              className="p-2.5 rounded-xl border border-border-custom bg-input-bg/60 hover:border-romantic-deep/40 transition-all space-y-2"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-bold text-text-main truncate">
+                                    {item.title}
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] text-text-muted">
+                                    <span className="px-1.5 py-0.5 rounded bg-card-bg border border-border-custom font-semibold text-romantic-deep">
+                                      {item.pov === 'saheb' ? sahebName : tasfiDisplayName}
+                                    </span>
+                                    <span className="px-1.5 py-0.5 rounded bg-card-bg border border-border-custom">
+                                      {item.frame_theme === 'dark' ? 'ডার্ক' : 'লাইট'}
+                                    </span>
+                                    <span>{item.message_count} মেসেজ</span>
+                                    {dateText && <span>• {dateText}</span>}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDownloadSnapshotJson(item)}
+                                    className="p-1 rounded-md hover:bg-card-bg text-text-muted hover:text-text-main transition-colors cursor-pointer"
+                                    title="JSON ডাউনলোড"
+                                  >
+                                    <FileJson className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteHistoryItem(item.id)}
+                                    className="p-1 rounded-md hover:bg-red-500/10 text-text-muted hover:text-red-500 transition-colors cursor-pointer"
+                                    title="মুছে ফেলুন"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 pt-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRestorePreview(item)}
+                                  className="flex-1 py-1.5 px-2.5 rounded-lg border border-border-custom bg-card-bg hover:bg-romantic-pink/20 text-text-main text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
+                                >
+                                  <RotateCcw className="w-3 h-3 text-romantic-deep" />
+                                  <span>প্রিভিউ রিস্টোর</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadFromHistory(item)}
+                                  disabled={isExporting}
+                                  className="flex-1 py-1.5 px-2.5 rounded-lg bg-romantic-deep hover:bg-romantic-hover text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-all disabled:opacity-50 cursor-pointer"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  <span>ডাউনলোড PNG</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4 animate-fade-in">
                 {/* 1. Perspective (POV) Toggle */}
                 <div className="space-y-1.5">
                   <span className="text-[11px] font-bold text-text-muted block">
@@ -719,6 +1023,8 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
                     </div>
                   )}
                 </div>
+                  </div>
+                )}
               </div>
             ) : (
               /* TAB 2: MESSAGES TAB (Message selection & Quick Add Only) */
@@ -766,15 +1072,30 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
                             className="mt-0.5 accent-romantic-deep cursor-pointer"
                           />
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-0.5">
-                              <span
-                                className={`text-[10px] font-bold ${
-                                  isSaheb ? 'text-blue-600 dark:text-blue-400' : 'text-pink-600 dark:text-pink-400'
-                                }`}
-                              >
-                                {isSaheb ? sahebName : tasfiDisplayName}
-                              </span>
-                              <div className="flex items-center gap-1 opacity-80">
+                            <div className="flex items-center justify-between mb-0.5 gap-1">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span
+                                  className={`text-[10px] font-bold truncate ${
+                                    isSaheb ? 'text-blue-600 dark:text-blue-400' : 'text-pink-600 dark:text-pink-400'
+                                  }`}
+                                >
+                                  {isSaheb ? sahebName : tasfiDisplayName}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingMsgId(m.id);
+                                    setEditingText(m.content);
+                                    setEditingTime(m.time);
+                                  }}
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-card-bg border border-border-custom text-[9.5px] font-medium text-text-muted hover:text-romantic-deep hover:border-romantic-deep/40 transition-colors cursor-pointer shrink-0"
+                                  title="সময় এডিট করুন"
+                                >
+                                  <Clock className="w-2.5 h-2.5" />
+                                  <span>{m.time}</span>
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-1 opacity-80 shrink-0">
                                 <button
                                   onClick={() => moveMessage(idx, 'up')}
                                   disabled={idx === 0}
@@ -795,6 +1116,7 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
                                   onClick={() => {
                                     setEditingMsgId(m.id);
                                     setEditingText(m.content);
+                                    setEditingTime(m.time);
                                   }}
                                   className="p-0.5 hover:text-romantic-deep cursor-pointer"
                                   title="এডিট"
@@ -813,15 +1135,31 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
 
                             {editingMsgId === m.id ? (
                               <div className="space-y-1.5 mt-1">
+                                <div className="flex items-center gap-1.5">
+                                  <label className="text-[10px] font-semibold text-text-muted flex items-center gap-1 shrink-0">
+                                    <Clock className="w-3 h-3 text-romantic-deep" />
+                                    <span>সময়:</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={editingTime}
+                                    onChange={(e) => setEditingTime(e.target.value)}
+                                    placeholder="যেমন: ১০:২৪ AM"
+                                    className="flex-1 px-2 py-1 bg-card-bg border border-border-custom rounded-md text-[11px] font-medium text-text-main outline-none focus:ring-1 focus:ring-romantic-deep"
+                                  />
+                                </div>
                                 <textarea
                                   value={editingText}
                                   onChange={(e) => setEditingText(e.target.value)}
                                   rows={2}
-                                  className="w-full p-1.5 bg-card-bg border border-border-custom rounded-md text-xs text-text-main"
+                                  className="w-full p-1.5 bg-card-bg border border-border-custom rounded-md text-xs text-text-main outline-none focus:ring-1 focus:ring-romantic-deep"
                                 />
                                 <div className="flex justify-end gap-1.5">
                                   <button
-                                    onClick={() => setEditingMsgId(null)}
+                                    onClick={() => {
+                                      setEditingMsgId(null);
+                                      setEditingTime('');
+                                    }}
                                     className="px-2 py-0.5 text-[10px] rounded border border-border-custom cursor-pointer"
                                   >
                                     বাতিল
@@ -848,7 +1186,20 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
 
                 {/* Quick Add Message */}
                 <div className="space-y-1.5 bg-input-bg/70 p-2.5 rounded-xl border border-border-custom">
-                  <span className="text-[10px] font-bold text-text-muted block">নতুন মেসেজ যোগ করুন</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-bold text-text-muted">নতুন মেসেজ যোগ করুন</span>
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-text-muted" />
+                      <input
+                        type="text"
+                        value={newMsgTime}
+                        onChange={(e) => setNewMsgTime(e.target.value)}
+                        placeholder={currentTimeText}
+                        className="w-24 px-1.5 py-0.5 bg-card-bg border border-border-custom rounded text-[10px] text-text-main outline-none focus:ring-1 focus:ring-romantic-deep"
+                        title="মেসেজের সময় (ঐচ্ছিক)"
+                      />
+                    </div>
+                  </div>
                   <div className="flex gap-1.5">
                     <button
                       type="button"
@@ -1141,7 +1492,7 @@ export const ScreenshotStudioModal: React.FC<ScreenshotStudioModalProps> = ({
             {/* Quick Export Actions */}
             <div className="mt-3 flex items-center gap-2">
               <button
-                onClick={handleDownloadImage}
+                onClick={() => handleDownloadImage(false)}
                 disabled={isExporting || displayedMessages.length === 0}
                 className="px-4 py-1.5 bg-romantic-deep hover:bg-romantic-hover text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
               >

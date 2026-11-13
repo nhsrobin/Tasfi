@@ -1,33 +1,46 @@
-import express from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import cors from 'cors';
-import { apiRouter } from './routes.js';
-import { setupLiveWebSocket } from './websocket.js';
+import { apiRouter } from './routes.ts';
+import { setupLiveWebSocket } from './websocket.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 // Root directory is one level up from server/
 const rootDir = path.resolve(__dirname, '..');
 
-export async function createTasfiServer() {
-  const app = express();
+function resolveServerPort(): number {
   const args = process.argv.slice(2);
   const portIndex = args.indexOf('--port');
-  const port = (portIndex !== -1 && args[portIndex + 1])
-    ? parseInt(args[portIndex + 1], 10)
-    : (process.env.PORT ? parseInt(process.env.PORT, 10) : 3000);
+  const cliPort = (portIndex !== -1 && args[portIndex + 1]) ? parseInt(args[portIndex + 1], 10) : NaN;
+  if (!Number.isNaN(cliPort) && cliPort > 0) return cliPort;
+
+  const npmPort = process.env.npm_config_port ? parseInt(process.env.npm_config_port, 10) : NaN;
+  if (!Number.isNaN(npmPort) && npmPort > 0) return npmPort;
+
+  // In production (e.g., Render / Cloud Run), honor process.env.PORT.
+  // In local/dev preview containers where PORT=8080 may belong to an upstream proxy, default to 3000.
+  if (process.env.NODE_ENV === 'production' && process.env.PORT) {
+    const envPort = parseInt(process.env.PORT, 10);
+    if (!Number.isNaN(envPort) && envPort > 0) return envPort;
+  }
+
+  return 3000;
+}
+
+export async function createTasfiServer() {
+  const app = express();
+  const port = resolveServerPort();
 
   // Universal CORS Configuration:
   // Allows requests from Vercel (https://*.vercel.app), Render, Capacitor mobile apps
   // (capacitor://localhost, http://localhost), and custom domains without blocks.
   app.use(cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile native apps, curl, Capacitor, server-to-server)
       if (!origin) return callback(null, true);
-      // Allow all origins for universal multi-frontend compatibility
       return callback(null, true);
     },
     credentials: true,
@@ -46,17 +59,31 @@ export async function createTasfiServer() {
 
   if (!isApiOnly) {
     if (process.env.NODE_ENV !== 'production') {
-      try {
-        const { createServer } = await import('vite');
-        const vite = await createServer({
-          root: rootDir,
-          server: { middlewareMode: true, hmr: process.env.DISABLE_HMR !== 'true' },
-          appType: 'spa',
-        });
-        app.use(vite.middlewares);
-      } catch (viteErr) {
-        console.warn('[Vite Middleware Notice]:', viteErr);
-      }
+      // Initialize Vite asynchronously so HTTP port binding is never delayed on cold starts
+      let viteMiddlewares: ((req: Request, res: Response, next: NextFunction) => void) | null = null;
+      const viteReadyPromise = (async () => {
+        try {
+          const { createServer } = await import('vite');
+          const vite = await createServer({
+            root: rootDir,
+            server: { middlewareMode: true, hmr: process.env.DISABLE_HMR !== 'true' },
+            appType: 'spa',
+          });
+          viteMiddlewares = vite.middlewares;
+        } catch (viteErr) {
+          console.warn('[Vite Middleware Notice]:', viteErr);
+        }
+      })();
+
+      app.use(async (req: Request, res: Response, next: NextFunction) => {
+        if (!viteMiddlewares) {
+          await viteReadyPromise;
+        }
+        if (viteMiddlewares) {
+          return viteMiddlewares(req, res, next);
+        }
+        next();
+      });
     } else {
       const distPath = path.resolve(rootDir, 'dist');
       if (fs.existsSync(distPath)) {
@@ -70,6 +97,9 @@ export async function createTasfiServer() {
 
   // Create HTTP server to attach both Express and Live WebSocket server
   const httpServer = http.createServer(app);
+  httpServer.on('error', (err) => {
+    console.error('[Tasfi HTTP Server Error]:', err);
+  });
   setupLiveWebSocket(httpServer);
 
   return { app, httpServer, port };

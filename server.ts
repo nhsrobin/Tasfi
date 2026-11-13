@@ -5,13 +5,13 @@
  * Node, Docker, Cloud Run, Render, and Vercel/Capacitor setups.
  */
 
-import './server/index.js';
+import './server/index.ts';
 
-export * from './server/keyPool.js';
-export * from './server/prompts.js';
-export * from './server/chatService.js';
-export * from './server/voiceService.js';
-export * from './server/memoryService.js';
-export * from './server/websocket.js';
-export * from './server/routes.js';
-export * from './server/index.js';
+export * from './server/keyPool.ts';
+export * from './server/prompts.ts';
+export * from './server/chatService.ts';
+export * from './server/voiceService.ts';
+export * from './server/memoryService.ts';
+export * from './server/websocket.ts';
+export * from './server/routes.ts';
+export * from './server/index.ts';

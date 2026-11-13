@@ -1,4 +1,4 @@
-import { serverKeyPool } from './keyPool.js';
+import { serverKeyPool } from './keyPool.ts';
 
 export async function handleServerMemoryExtraction(
   userMessage: string,
